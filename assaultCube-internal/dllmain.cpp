@@ -2,7 +2,71 @@
 #include <iostream>
 #include "mem.h"
 
-// https://guidedhacking.com/threads/how-to-hack-any-game-first-internal-hack-dll-tutorial.12142/
+
+
+
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+class ent
+{
+public:
+    char pad_0000[4]; //0x0000
+    float X; //0x0004
+    float Y; //0x0008
+    float Z; //0x000C
+    char pad_0010[36]; //0x0010
+    float lookleft_right; //0x0034
+    float lookup_down; //0x0038
+    char pad_003C[176]; //0x003C
+    int32_t player_health; //0x00EC
+    int32_t armor_quantity; //0x00F0
+    char pad_00F4[20]; //0x00F4
+    int32_t pistol_stored_ammo; //0x0108
+    char pad_010C[16]; //0x010C
+    int32_t assault_rifle_stored_ammo; //0x011C
+    char pad_0120[32]; //0x0120
+    int32_t assault_rifle_ammo; //0x0140
+    int32_t grenade_number; //0x0144
+    char pad_0148[8]; //0x0148
+    int32_t pistol_shot_reload_delay; //0x0150
+    char pad_0154[16]; //0x0154
+    int64_t assault_rifle_shot_reload_delay; //0x0164
+    char pad_016C[8]; //0x016C
+    int32_t pistol_total_shots; //0x0174
+    char pad_0178[16]; //0x0178
+    int32_t assault_rifle_total_shots; //0x0188
+    char pad_018C[80]; //0x018C
+    int32_t number_of_kills; //0x01DC
+    char pad_01E0[32]; //0x01E0
+    //char name ? [4]; //0x0200
+    //char name1[4]; //0x0204
+    //char name2[4]; //0x0208
+    char pad_020C[268]; //0x020C
+    bool is_dead; //0x0318
+    char pad_0319[75]; //0x0319
+    class N000002EE* weapon_in_hand; //0x0364
+    char pad_0368[480]; //0x0368
+}; //Size: 0x0548
+
+
+class N00000291
+{
+public:
+    char pad_0000[68]; //0x0000
+}; //Size: 0x0044
+static_assert(sizeof(N00000291) == 0x44);
+
+class N000002EE
+{
+public:
+    char pad_0000[68]; //0x0000
+}; //Size: 0x0044
+static_assert(sizeof(N000002EE) == 0x44);
+
+
+
+
+
 
 DWORD WINAPI HackThread(HMODULE hModule)
 {
@@ -18,7 +82,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
     // calling it with NULL also gives you the address of the .exe module
     moduleBase = (uintptr_t)GetModuleHandle(NULL);
 
-    bool bHealth = false, bAmmo = false, bRecoil = false;
+    bool bHealth = false, bAmmo = false, bRecoil = false, bNoReload = false;
 
     while (true)
     {
@@ -38,6 +102,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
             bAmmo = !bAmmo;
             std::cout << "Ammo Hack: " << (bAmmo ? "ON" : "OFF") << "\n";
         }
+        
 
         // no recoil NOP
         if (GetAsyncKeyState(VK_F3) & 1)
@@ -56,15 +121,21 @@ DWORD WINAPI HackThread(HMODULE hModule)
 				std::cout << "No Recoil OFF\n";
             }
         }
+        if (GetAsyncKeyState(VK_F4) & 1)
+        {
+            bNoReload = !bNoReload;
+            std::cout << "No Reload: " << (bNoReload ? "ON" : "OFF") << "\n";
+        }
 
-        uintptr_t* localPlayerPtr = (uintptr_t*)(moduleBase + 0x0017E0A8);
+        ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
+		uintptr_t* localPlayerPtr = (uintptr_t*)(moduleBase + 0x0017E0A8);
 
         // continuous writes / freeze
-        if (localPlayerPtr)
+        if (localPlayer)
         {
             if (bHealth)
             {
-                *(int*)(*localPlayerPtr + 0xEC) = 1000;
+				localPlayer->player_health = 1000; // set health to 1337
                
             }
 
@@ -76,6 +147,17 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 *ammo = 1337; */
                 
 				mem::Nop((BYTE*)(moduleBase + 0xC73EF), 2);
+            }
+            else {
+                mem::Patch((BYTE*)(moduleBase + 0xC73EF), (BYTE*)"\xFF\x08", 2);
+            }
+
+            if (bNoReload)
+            {
+                mem::Nop((BYTE*)(moduleBase + 0xC8FC7), 2);
+            }
+            else {
+                mem::Patch((BYTE*)(moduleBase + 0xc8FC7), (BYTE*)"\x01\x01", 2);
             }
         }
         Sleep(5);
