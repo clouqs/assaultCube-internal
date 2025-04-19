@@ -27,12 +27,16 @@ DWORD WINAPI HackThread(HMODULE hModule)
             break;
         }
 
-        if (GetAsyncKeyState(VK_F1) & 1)
+        if (GetAsyncKeyState(VK_F1) & 1) 
+        {
             bHealth = !bHealth;
+            std::cout << "Health Hack: " << (bHealth ? "ON" : "OFF") << "\n";
+        }
 
         if (GetAsyncKeyState(VK_F2) & 1)
         {
             bAmmo = !bAmmo;
+            std::cout << "Ammo Hack: " << (bAmmo ? "ON" : "OFF") << "\n";
         }
 
         // no recoil NOP
@@ -60,8 +64,8 @@ DWORD WINAPI HackThread(HMODULE hModule)
         {
             if (bHealth)
             {
-                *(int*)(*localPlayerPtr + 0xEC) = 1337;
-                std::cout << "Health Hack ON\n";
+                *(int*)(*localPlayerPtr + 0xEC) = 1000;
+               
             }
 
             if (bAmmo)
@@ -70,9 +74,8 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 uintptr_t ammoAddr = mem::FindDMAAddy(moduleBase + 0x0017E0A8, { 0x140 });
                 int* ammo = (int*)ammoAddr;
                 *ammo = 1337; */
-
-                *(int*)mem::FindDMAAddy(moduleBase + 0x0017E0A8, { 0x140 }) = 1337;
-				std::cout << "Ammo Hack ON\n";
+                
+				mem::Nop((BYTE*)(moduleBase + 0xC73EF), 2);
             }
         }
         Sleep(5);
