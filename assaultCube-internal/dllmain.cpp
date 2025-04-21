@@ -76,14 +76,21 @@ DWORD WINAPI HackThread(HMODULE hModule)
     FILE* f;
     freopen_s(&f, "CONOUT$", "w", stdout);
 
-    std::cout << "assaultMe - internal\n";
+    std::cout << "===== assaultMe - internal =====\n";
+    std::cout << "[F1]  Health Hack : <OFF>\n";
+    std::cout << "[F2]  Ammo Hack   : <OFF>\n";
+    std::cout << "[F3]  No Recoil   : <OFF>\n";
+    std::cout << "[F4]  No Reload   : <OFF>\n";
+    std::cout << "[INS] Exit\n";
+    std::cout << "===============================\n";
+
 
     uintptr_t moduleBase = (uintptr_t)GetModuleHandle(L"ac_client.exe");
-
-    // calling it with NULL also gives you the address of the .exe module
     moduleBase = (uintptr_t)GetModuleHandle(NULL);
 
-    bool bHealth = false, bAmmo = false, bRecoil = false, bNoReload = false;
+    bool bHealth = false, bAmmo = false, bRecoil = false, bNoReload = false,
+        bGrenade = false;
+        
 
     while (true)
     {
@@ -92,64 +99,62 @@ DWORD WINAPI HackThread(HMODULE hModule)
             break;
         }
 
-        if (GetAsyncKeyState(VK_F1) & 1) 
+        bool updateDisplay = false;
+
+        if (GetAsyncKeyState(VK_F1) & 1)
         {
             bHealth = !bHealth;
-            std::cout << "\rHealth Hack: " << (bHealth ? "<ON>" : "<OFF>") << "          " << std::flush;
+            updateDisplay = true;
         }
 
         if (GetAsyncKeyState(VK_F2) & 1)
         {
             bAmmo = !bAmmo;
-            std::cout << "\rAmmo Hack:   " << (bAmmo ? "<ON>" : "<OFF>") << "          " << std::flush;
-
+            updateDisplay = true;
         }
-        
 
-        // no recoil NOP
         if (GetAsyncKeyState(VK_F3) & 1)
         {
             bRecoil = !bRecoil;
-            std::cout << "\rNo Recoil:   " << (bRecoil ? "<ON>" : "<OFF>") << "          " << std::flush;
+            updateDisplay = true;
 
-
-            if (bRecoil)
-            {
-                mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);				
-            }
-            else
-            {
-                // 50 8D 4C 24 1C 51 8B CE FF D2 the original stack setup and call
-                mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);				
-            }
         }
         if (GetAsyncKeyState(VK_F4) & 1)
         {
             bNoReload = !bNoReload;
-            std::cout << "\rNo Reload:   " << (bNoReload ? "<ON>" : "<OFF>") << "          " << std::flush;
+            updateDisplay = true;
+        }
 
+        if (GetAsyncKeyState(VK_F5) & 1)
+        {
+            bGrenade = !bGrenade;
+            updateDisplay = true;
+        }
+        if (updateDisplay)
+        {
+            system("cls");
+            std::cout << "===== assaultMe - internal =====\n";
+            std::cout << "[F1]  Health Hack : <" << (bHealth ? "ON " : "OFF") << ">\n";
+            std::cout << "[F2]  Ammo Hack   : <" << (bAmmo ? "ON " : "OFF") << ">\n";
+            std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON " : "OFF") << ">\n";
+            std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON " : "OFF") << ">\n";
+            std::cout << "[INS] Exit\n";
+            std::cout << "===============================\n";
         }
 
         ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
-		uintptr_t* localPlayerPtr = (uintptr_t*)(moduleBase + 0x0017E0A8);
+        uintptr_t* localPlayerPtr = (uintptr_t*)(moduleBase + 0x0017E0A8);
 
-        // continuous writes / freeze
         if (localPlayer)
         {
             if (bHealth)
             {
-				localPlayer->player_health = 1000; // set health to 1337
-               
+                localPlayer->player_health = 1000;
             }
 
             if (bAmmo)
             {
-                /*
-                uintptr_t ammoAddr = mem::FindDMAAddy(moduleBase + 0x0017E0A8, { 0x140 });
-                int* ammo = (int*)ammoAddr;
-                *ammo = 1337; */
-                
-				mem::Nop((BYTE*)(moduleBase + 0xC73EF), 2);
+                mem::Nop((BYTE*)(moduleBase + 0xC73EF), 2);
             }
             else {
                 mem::Patch((BYTE*)(moduleBase + 0xC73EF), (BYTE*)"\xFF\x08", 2);
@@ -160,7 +165,15 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 mem::Nop((BYTE*)(moduleBase + 0xC8FC7), 2);
             }
             else {
-                mem::Patch((BYTE*)(moduleBase + 0xc8FC7), (BYTE*)"\x01\x01", 2);
+                mem::Patch((BYTE*)(moduleBase + 0xC8FC7), (BYTE*)"\x01\x01", 2);
+            }
+            if (bRecoil)
+            {
+                mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
+            }
+            else
+            {
+                mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
             }
         }
         Sleep(5);
