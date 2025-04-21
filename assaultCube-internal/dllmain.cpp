@@ -5,6 +5,7 @@
 
 
 
+
 // Created with ReClass.NET 1.2 by KN4CK3R
 
 class ent
@@ -65,7 +66,7 @@ static_assert(sizeof(N000002EE) == 0x44);
 
 
 
-
+//above is for padding
 
 
 DWORD WINAPI HackThread(HMODULE hModule)
@@ -94,13 +95,14 @@ DWORD WINAPI HackThread(HMODULE hModule)
         if (GetAsyncKeyState(VK_F1) & 1) 
         {
             bHealth = !bHealth;
-            std::cout << "Health Hack: " << (bHealth ? "ON" : "OFF") << "\n";
+            std::cout << "\rHealth Hack: " << (bHealth ? "<ON>" : "<OFF>") << "          " << std::flush;
         }
 
         if (GetAsyncKeyState(VK_F2) & 1)
         {
             bAmmo = !bAmmo;
-            std::cout << "Ammo Hack: " << (bAmmo ? "ON" : "OFF") << "\n";
+            std::cout << "\rAmmo Hack:   " << (bAmmo ? "<ON>" : "<OFF>") << "          " << std::flush;
+
         }
         
 
@@ -108,23 +110,24 @@ DWORD WINAPI HackThread(HMODULE hModule)
         if (GetAsyncKeyState(VK_F3) & 1)
         {
             bRecoil = !bRecoil;
+            std::cout << "\rNo Recoil:   " << (bRecoil ? "<ON>" : "<OFF>") << "          " << std::flush;
+
 
             if (bRecoil)
             {
-                mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
-				std::cout << "No Recoil ON\n";
+                mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);				
             }
             else
             {
                 // 50 8D 4C 24 1C 51 8B CE FF D2 the original stack setup and call
-                mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
-				std::cout << "No Recoil OFF\n";
+                mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);				
             }
         }
         if (GetAsyncKeyState(VK_F4) & 1)
         {
             bNoReload = !bNoReload;
-            std::cout << "No Reload: " << (bNoReload ? "ON" : "OFF") << "\n";
+            std::cout << "\rNo Reload:   " << (bNoReload ? "<ON>" : "<OFF>") << "          " << std::flush;
+
         }
 
         ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
