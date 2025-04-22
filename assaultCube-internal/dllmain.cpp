@@ -50,22 +50,6 @@ public:
 }; //Size: 0x0548
 
 
-class N00000291
-{
-public:
-    char pad_0000[68]; //0x0000
-}; //Size: 0x0044
-static_assert(sizeof(N00000291) == 0x44);
-
-class N000002EE
-{
-public:
-    char pad_0000[68]; //0x0000
-}; //Size: 0x0044
-static_assert(sizeof(N000002EE) == 0x44);
-
-
-
 //above is for padding
 
 
@@ -83,7 +67,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
     std::cout << "[F3]  No Recoil   : <OFF>\n";
     std::cout << "[F4]  No Reload   : <OFF>\n";
     std::cout << "[F5]  Add 10 Grenades\n";
-    std::cout << "================================\n"
+    std::cout << "================================\n";
     std::cout << "[INS] Exit\n";
     std::cout << "\n";
     std::cout << "\n";
