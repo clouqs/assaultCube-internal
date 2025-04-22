@@ -81,8 +81,10 @@ DWORD WINAPI HackThread(HMODULE hModule)
     std::cout << "[F2]  Ammo Hack   : <OFF>\n";
     std::cout << "[F3]  No Recoil   : <OFF>\n";
     std::cout << "[F4]  No Reload   : <OFF>\n";
-    std::cout << "[INS] Exit\n";
+    std::cout << "[F5]  Add 10 Grenades   : <" << "0" << ">\n";
+    
     std::cout << "===============================\n";
+    std::cout << "[INS] Exit\n";
 
 
     uintptr_t moduleBase = (uintptr_t)GetModuleHandle(L"ac_client.exe");
@@ -91,9 +93,14 @@ DWORD WINAPI HackThread(HMODULE hModule)
     bool bHealth = false, bAmmo = false, bRecoil = false, bNoReload = false,
         bGrenade = false;
         
+    //random declarations
+    static bool grenadeGiven = false;
 
     while (true)
     {
+        ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
+        uintptr_t* localPlayerPtr = (uintptr_t*)(moduleBase + 0x0017E0A8);
+
         if (GetAsyncKeyState(VK_INSERT) & 1)
         {
             break;
@@ -130,20 +137,6 @@ DWORD WINAPI HackThread(HMODULE hModule)
             bGrenade = !bGrenade;
             updateDisplay = true;
         }
-        if (updateDisplay)
-        {
-            system("cls");
-            std::cout << "===== assaultMe - internal =====\n";
-            std::cout << "[F1]  Health Hack : <" << (bHealth ? "ON " : "OFF") << ">\n";
-            std::cout << "[F2]  Ammo Hack   : <" << (bAmmo ? "ON " : "OFF") << ">\n";
-            std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON " : "OFF") << ">\n";
-            std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON " : "OFF") << ">\n";
-            std::cout << "[INS] Exit\n";
-            std::cout << "===============================\n";
-        }
-
-        ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
-        uintptr_t* localPlayerPtr = (uintptr_t*)(moduleBase + 0x0017E0A8);
 
         if (localPlayer)
         {
@@ -175,8 +168,29 @@ DWORD WINAPI HackThread(HMODULE hModule)
             {
                 mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
             }
+            if (bGrenade && !grenadeGiven)
+            {
+                localPlayer->grenade_number += 10; 
+                grenadeGiven = true;
+            }
+            else if (!bGrenade)
+            {
+                grenadeGiven = false; 
+            }
         }
         Sleep(5);
+        if (updateDisplay)
+        {
+            system("cls");
+            std::cout << "===== assaultMe - internal =====\n";
+            std::cout << "[F1]  Health Hack : <" << (bHealth ? "ON " : "OFF") << ">\n";
+            std::cout << "[F2]  Ammo Hack   : <" << (bAmmo ? "ON " : "OFF") << ">\n";
+            std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON " : "OFF") << ">\n";
+            std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON " : "OFF") << ">\n";
+            std::cout << "[F5]  Add 10 Grenades   : <" << (localPlayer->grenade_number) << ">\n";
+            std::cout << "===============================\n";
+            std::cout << "[INS] Exit\n";
+        }
     }
 
     fclose(f);
