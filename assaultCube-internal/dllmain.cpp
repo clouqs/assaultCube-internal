@@ -77,14 +77,25 @@ DWORD WINAPI HackThread(HMODULE hModule)
     freopen_s(&f, "CONOUT$", "w", stdout);
 
     std::cout << "===== assaultMe - internal =====\n";
+    std::cout << "=========== by clouqs ===========\n";
     std::cout << "[F1]  Health Hack : <OFF>\n";
     std::cout << "[F2]  Ammo Hack   : <OFF>\n";
     std::cout << "[F3]  No Recoil   : <OFF>\n";
     std::cout << "[F4]  No Reload   : <OFF>\n";
-    std::cout << "[F5]  Add 10 Grenades   : <" << "0" << ">\n";
-    
-    std::cout << "===============================\n";
+    std::cout << "[F5]  Add 10 Grenades\n";
+    std::cout << "================================\n"
     std::cout << "[INS] Exit\n";
+    std::cout << "\n";
+    std::cout << "\n";
+    std::cout << R"(
+
+   ____ _                 _     
+  / ___| | ___  _   _  __| |___ 
+ | |   | |/ _ \| | | |/ _` / __|
+ | |___| | (_) | |_| | (_| \__ \                       
+  \____|_|\___/ \__,_|\__,_|___/
+
+)" << std::endl; //idk it just looks cool
 
 
     uintptr_t moduleBase = (uintptr_t)GetModuleHandle(L"ac_client.exe");
@@ -94,20 +105,15 @@ DWORD WINAPI HackThread(HMODULE hModule)
         bGrenade = false;
         
     //random declarations
-    static bool grenadeGiven = false;
-
+    bool updateDisplay = false;
     while (true)
     {
         ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
-        uintptr_t* localPlayerPtr = (uintptr_t*)(moduleBase + 0x0017E0A8);
-
+        
         if (GetAsyncKeyState(VK_INSERT) & 1)
         {
             break;
         }
-
-        bool updateDisplay = false;
-
         if (GetAsyncKeyState(VK_F1) & 1)
         {
             bHealth = !bHealth;
@@ -131,27 +137,37 @@ DWORD WINAPI HackThread(HMODULE hModule)
             bNoReload = !bNoReload;
             updateDisplay = true;
         }
-
-        if (GetAsyncKeyState(VK_F5) & 1) 
+        if (GetAsyncKeyState(VK_F5) & 1)
         {
-            bGrenade = !bGrenade;
-            if (bGrenade && !grenadeGiven)
-            {
+            if (localPlayer) {
                 localPlayer->grenade_number += 10;
-                grenadeGiven = true; 
+                updateDisplay = true;
             }
-            else if (!bGrenade)
-            {
-                grenadeGiven = false; // Reset for the next time
-            }
-            updateDisplay = true;
         }
 
         if (localPlayer)
         {
+            if (updateDisplay)
+            {
+                system("cls");
+                std::cout << "===== assaultMe - internal =====\n";
+                std::cout << "[F1]  Health Hack : <" << (bHealth ? "ON" : "OFF") << ">\n";
+                std::cout << "[F2]  Ammo Hack   : <" << (bAmmo ? "ON" : "OFF") << ">\n";
+                std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON" : "OFF") << ">\n";
+                std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON" : "OFF") << ">\n";
+                std::cout << "[F5]  Add 10 Grenades\n";
+                std::cout << "================================\n";
+                std::cout << "[INS] Exit\n";
+
+                updateDisplay = false;
+            }
             if (bHealth)
             {
                 localPlayer->player_health = 1000;
+            }
+            else 
+            {
+				localPlayer->player_health = 100;
             }
 
             if (bAmmo)
@@ -178,22 +194,11 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
             }
             
+            
         }
         Sleep(5);
-        if (updateDisplay)
-        {
-            system("cls");
-            std::cout << "===== assaultMe - internal =====\n";
-            std::cout << "[F1]  Health Hack : <" << (bHealth ? "ON " : "OFF") << ">\n";
-            std::cout << "[F2]  Ammo Hack   : <" << (bAmmo ? "ON " : "OFF") << ">\n";
-            std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON " : "OFF") << ">\n";
-            std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON " : "OFF") << ">\n";
-            std::cout << "[F5]  Add 10 Grenades   : <" << (localPlayer->grenade_number) << ">\n";
-            std::cout << "===============================\n";
-            std::cout << "[INS] Exit\n";
-        }
+        
     }
-
     fclose(f);
     FreeConsole();
     FreeLibraryAndExitThread(hModule, 0);
