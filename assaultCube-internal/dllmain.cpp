@@ -132,9 +132,18 @@ DWORD WINAPI HackThread(HMODULE hModule)
             updateDisplay = true;
         }
 
-        if (GetAsyncKeyState(VK_F5) & 1)
+        if (GetAsyncKeyState(VK_F5) & 1) 
         {
             bGrenade = !bGrenade;
+            if (bGrenade && !grenadeGiven)
+            {
+                localPlayer->grenade_number += 10;
+                grenadeGiven = true; 
+            }
+            else if (!bGrenade)
+            {
+                grenadeGiven = false; // Reset for the next time
+            }
             updateDisplay = true;
         }
 
@@ -168,15 +177,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
             {
                 mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
             }
-            if (bGrenade && !grenadeGiven)
-            {
-                localPlayer->grenade_number += 10; 
-                grenadeGiven = true;
-            }
-            else if (!bGrenade)
-            {
-                grenadeGiven = false; 
-            }
+            
         }
         Sleep(5);
         if (updateDisplay)
