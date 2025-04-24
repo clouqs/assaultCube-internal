@@ -47,14 +47,14 @@
     <ClCompile Include="dllmain.cpp">
       <Filter>File di origine</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\..\Downloads\First Internal Hack-GuidedHacking.com\First Internal Hack\FirstInternalHack\proc.cpp">
-      <Filter>proc</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\..\..\Downloads\First Internal Hack-GuidedHacking.com\First Internal Hack\FirstInternalHack\mem.cpp">
-      <Filter>mem</Filter>
-    </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <Filter>pch</Filter>
+    </ClCompile>
+    <ClCompile Include="mem.cpp">
+      <Filter>mem</Filter>
+    </ClCompile>
+    <ClCompile Include="proc.cpp">
+      <Filter>proc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

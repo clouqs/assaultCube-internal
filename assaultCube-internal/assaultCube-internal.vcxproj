@@ -148,9 +148,9 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\..\..\Downloads\First Internal Hack-GuidedHacking.com\First Internal Hack\FirstInternalHack\mem.cpp" />
-    <ClCompile Include="..\..\..\..\..\Downloads\First Internal Hack-GuidedHacking.com\First Internal Hack\FirstInternalHack\proc.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="mem.cpp" />
+    <ClCompile Include="proc.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <ItemGroup>
