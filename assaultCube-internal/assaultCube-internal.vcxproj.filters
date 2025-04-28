@@ -33,14 +33,14 @@
     <ClInclude Include="..\..\..\..\..\Downloads\First Internal Hack-GuidedHacking.com\First Internal Hack\FirstInternalHack\proc.h">
       <Filter>proc</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\..\Downloads\First Internal Hack-GuidedHacking.com\First Internal Hack\FirstInternalHack\mem.h">
-      <Filter>mem</Filter>
-    </ClInclude>
     <ClInclude Include="stdafx.h">
       <Filter>pch</Filter>
     </ClInclude>
     <ClInclude Include="targetver.h">
       <Filter>pch</Filter>
+    </ClInclude>
+    <ClInclude Include="mem.h">
+      <Filter>mem</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

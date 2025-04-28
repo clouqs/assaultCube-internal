@@ -67,6 +67,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
     std::cout << "[F3]  No Recoil   : <OFF>\n";
     std::cout << "[F4]  No Reload   : <OFF>\n";
     std::cout << "[F5]  Add 10 Grenades\n";
+	std::cout << "[F6] Show Bot list\n";
     std::cout << "================================\n";
     std::cout << "[INS] Exit\n";
     std::cout << "\n";
@@ -128,6 +129,59 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 updateDisplay = true;
             }
         }
+        if (GetAsyncKeyState(VK_F6) & 1)
+        {
+            system("cls");
+            std::cout << "Bot list - health\n";
+
+            uintptr_t entityList = *(uintptr_t*)(moduleBase + 0x18AC04);
+            if (!entityList)
+            {
+                std::cout << "Entity list not found!\n";
+                continue;
+            }
+
+            for (int i = 1; i < 32; i++) // Start from 1 to skip local player
+            {
+                ent* pEntity = *(ent**)(entityList + i * 4);
+
+                // More thorough validation
+                if (!pEntity ||
+                    pEntity == localPlayer ||
+                    IsBadReadPtr(pEntity, sizeof(ent))) // Check if memory is readable
+                {
+                    continue;
+                }
+
+
+                // Additional sanity checks
+                if (pEntity->player_health <= 0 ||
+                    pEntity->player_health > 1000 ||
+                    pEntity->X == 0 && pEntity->Y == 0 && pEntity->Z == 0) // Check position
+                {
+                    continue;
+                }
+
+                try
+                {
+                    int health = pEntity->player_health;
+                    bool isDead = pEntity->is_dead;
+
+                    if (!isDead) {
+                        std::cout << "Bot #" << i << " | Health: " << health << "\n";
+                    }
+                    else {
+                        std::cout << "Bot #" << i << " | Dead\n";
+                    }
+                }
+                catch (...)
+                {
+                    std::cout << "Bot #" << i << " | Error reading data\n";
+                }
+            }
+        }
+
+
 
         if (localPlayer)
         {
@@ -140,6 +194,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON" : "OFF") << ">\n";
                 std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON" : "OFF") << ">\n";
                 std::cout << "[F5]  Add 10 Grenades\n";
+                std::cout << "[F6] Show Bot list\n";
                 std::cout << "================================\n";
                 std::cout << "[INS] Exit\n";
 
