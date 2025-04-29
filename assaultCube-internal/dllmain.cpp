@@ -91,10 +91,12 @@ DWORD WINAPI HackThread(HMODULE hModule)
         
     //random declarations
     bool updateDisplay = false;
+    bool showHealth = false;
+    int botCount = 0;
     while (true)
     {
         ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
-        
+
         if (GetAsyncKeyState(VK_INSERT) & 1)
         {
             break;
@@ -115,13 +117,14 @@ DWORD WINAPI HackThread(HMODULE hModule)
         {
             bRecoil = !bRecoil;
             updateDisplay = true;
-
         }
+
         if (GetAsyncKeyState(VK_F4) & 1)
         {
             bNoReload = !bNoReload;
             updateDisplay = true;
         }
+
         if (GetAsyncKeyState(VK_F5) & 1)
         {
             if (localPlayer) {
@@ -129,84 +132,82 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 updateDisplay = true;
             }
         }
+
+        // Toggle health display on F6
         if (GetAsyncKeyState(VK_F6) & 1)
+        {
+            showHealth = !showHealth;
+            botCount = 0;
+            updateDisplay = true;
+        }
+
+        if (showHealth)
         {
             system("cls");
             std::cout << "Bot list - health\n";
 
-            uintptr_t entityList = *(uintptr_t*)(moduleBase + 0x18AC04);
-            if (!entityList)
+            uintptr_t entityListPtr = *(uintptr_t*)(moduleBase + 0x18AC04);
+            if (entityListPtr)
+            {
+                ent** entityList = (ent**)entityListPtr;
+                botCount = 0;
+
+                for (int i = 1; i < 32; i++)
+                {
+                    ent* pEntity = entityList[i];
+                    if (!pEntity || pEntity == localPlayer || IsBadReadPtr(pEntity, sizeof(ent)))
+                        continue;
+
+                    try
+                    {
+                        int health = pEntity->player_health;
+                        if (health > 0 && health <= 100)
+                        {
+                            std::cout << "Bot #" << i << " | Health: " << health << "\n";
+                            botCount++;
+                        }
+                        if (health == 0)
+                        {
+                            std::cout << "Bot #" << i << " is Dead \n";
+                        }
+                    }
+                    catch (...)
+                    {
+                        std::cout << "Bot #" << i << " | Error reading data\n";
+                    }
+                }
+                std::cout << "\nTotal bots alive: " << botCount << "\n";
+            }
+            else
             {
                 std::cout << "Entity list not found!\n";
-                continue;
-            }
-
-            for (int i = 1; i < 32; i++) // Start from 1 to skip local player
-            {
-                ent* pEntity = *(ent**)(entityList + i * 4);
-
-                // More thorough validation
-                if (!pEntity ||
-                    pEntity == localPlayer ||
-                    IsBadReadPtr(pEntity, sizeof(ent))) // Check if memory is readable
-                {
-                    continue;
-                }
-
-
-                // Additional sanity checks
-                if (pEntity->player_health <= 0 ||
-                    pEntity->player_health > 1000 ||
-                    pEntity->X == 0 && pEntity->Y == 0 && pEntity->Z == 0) // Check position
-                {
-                    continue;
-                }
-
-                try
-                {
-                    int health = pEntity->player_health;
-                    bool isDead = pEntity->is_dead;
-
-                    if (!isDead) {
-                        std::cout << "Bot #" << i << " | Health: " << health << "\n";
-                    }
-                    else {
-                        std::cout << "Bot #" << i << " | Dead\n";
-                    }
-                }
-                catch (...)
-                {
-                    std::cout << "Bot #" << i << " | Error reading data\n";
-                }
             }
         }
+        else if (updateDisplay)
+        {
+            system("cls");
+            std::cout << "===== assaultMe - internal =====\n";
+            std::cout << "[F1]  Health Hack : <" << (bHealth ? "ON" : "OFF") << ">\n";
+            std::cout << "[F2]  Ammo Hack   : <" << (bAmmo ? "ON" : "OFF") << ">\n";
+            std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON" : "OFF") << ">\n";
+            std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON" : "OFF") << ">\n";
+            std::cout << "[F5]  Add 10 Grenades\n";
+            std::cout << "[F6] Show Bot list : <" << (showHealth ? "ON" : "OFF") << ">\n";
+            std::cout << "================================\n";
+            std::cout << "[INS] Exit\n";
 
-
+            updateDisplay = false;
+        }
 
         if (localPlayer)
         {
-            if (updateDisplay)
-            {
-                system("cls");
-                std::cout << "===== assaultMe - internal =====\n";
-                std::cout << "[F1]  Health Hack : <" << (bHealth ? "ON" : "OFF") << ">\n";
-                std::cout << "[F2]  Ammo Hack   : <" << (bAmmo ? "ON" : "OFF") << ">\n";
-                std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON" : "OFF") << ">\n";
-                std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON" : "OFF") << ">\n";
-                std::cout << "[F5]  Add 10 Grenades\n";
-                std::cout << "[F6] Show Bot list\n";
-                std::cout << "================================\n";
-                std::cout << "[INS] Exit\n";
-
-                updateDisplay = false;
-            }
             if (bHealth)
             {
                 localPlayer->player_health = 1000;
             }
-            else 
+            else
             {
-				localPlayer->player_health = 100;
+                localPlayer->player_health = 100;
             }
 
             if (bAmmo)
@@ -224,6 +225,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
             else {
                 mem::Patch((BYTE*)(moduleBase + 0xC8FC7), (BYTE*)"\x01\x01", 2);
             }
+
             if (bRecoil)
             {
                 mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
@@ -232,12 +234,10 @@ DWORD WINAPI HackThread(HMODULE hModule)
             {
                 mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
             }
-            
-            
         }
         Sleep(5);
-        
     }
+
     fclose(f);
     FreeConsole();
     FreeLibraryAndExitThread(hModule, 0);
@@ -249,7 +249,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        // Correct thread creation without CloseHandle
         CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)HackThread, hModule, 0, nullptr);
         break;
     case DLL_THREAD_ATTACH:
