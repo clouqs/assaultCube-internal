@@ -132,8 +132,6 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 updateDisplay = true;
             }
         }
-
-        // Toggle health display on F6
         if (GetAsyncKeyState(VK_F6) & 1)
         {
             showHealth = !showHealth;
@@ -166,7 +164,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
                             std::cout << "Bot #" << i << " | Health: " << health << "\n";
                             botCount++;
                         }
-                        if (health == 0)
+                        else
                         {
                             std::cout << "Bot #" << i << " is Dead \n";
                         }
