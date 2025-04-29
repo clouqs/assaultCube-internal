@@ -171,6 +171,8 @@ DWORD WINAPI HackThread(HMODULE hModule)
 
                         //int botCountAllies = botCount - botCount / 2;
 						//int botCountEnemies = botCount - botCountAllies; ??? maybe - needs test 
+                        //botname = 0x205
+                        //use PlayerCount               >>>>>>[ac_client.exe + 0x18AC0C]   up here<<<<
                     }
                     catch (...)
                     {
