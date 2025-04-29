@@ -164,9 +164,9 @@ DWORD WINAPI HackThread(HMODULE hModule)
                             std::cout << "Bot #" << i << " | Health: " << health << "\n";
                             botCount++;
                         }
-                        else
+                        else if (health == 4294967288)
                         {
-                            std::cout << "Bot #" << i << " is Dead \n";
+                            std::cout << "Bot #" << i << " is Dead \n"; // add "friendly/enemy" bots
                         }
                     }
                     catch (...)
