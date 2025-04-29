@@ -168,6 +168,9 @@ DWORD WINAPI HackThread(HMODULE hModule)
                         {
                             std::cout << "Bot #" << i << " is Dead \n"; // add "friendly/enemy" bots
                         }
+
+                        //int botCountAllies = botCount - botCount / 2;
+						//int botCountEnemies = botCount - botCountAllies; ??? maybe - needs test 
                     }
                     catch (...)
                     {
