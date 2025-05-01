@@ -39,9 +39,7 @@ public:
     char pad_018C[80]; //0x018C
     int32_t number_of_kills; //0x01DC
     char pad_01E0[32]; //0x01E0
-    //char name ? [4]; //0x0200
-    //char name1[4]; //0x0204
-    //char name2[4]; //0x0208
+	char name[16]; //0x0205
     char pad_020C[268]; //0x020C
     bool is_dead; //0x0318
     char pad_0319[75]; //0x0319
@@ -132,6 +130,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 updateDisplay = true;
             }
         }
+
         if (GetAsyncKeyState(VK_F6) & 1)
         {
             showHealth = !showHealth;
@@ -145,34 +144,38 @@ DWORD WINAPI HackThread(HMODULE hModule)
             std::cout << "Bot list - health\n";
 
             uintptr_t entityListPtr = *(uintptr_t*)(moduleBase + 0x18AC04);
+			uintptr_t entityListSize = *(uintptr_t*)(moduleBase + 0x18AC0C);
             if (entityListPtr)
             {
                 ent** entityList = (ent**)entityListPtr;
                 botCount = 0;
 
-                for (int i = 1; i < 32; i++)
+                for (int i = 1; i < entityListSize; i++)
                 {
                     ent* pEntity = entityList[i];
                     if (!pEntity || pEntity == localPlayer || IsBadReadPtr(pEntity, sizeof(ent)))
                         continue;
-
+                        //int botCountAllies = botCount - botCount / 2;
+                        //int botCountEnemies = botCount - botCountAllies; ??? maybe - needs test 
+                        //botname = 0x205
+                        //use PlayerCount               >>>>>>[ac_client.exe + 0x18AC0C]   up here<<<<
+                    
                     try
                     {
                         int health = pEntity->player_health;
+                        std::string bot_name(pEntity->name, sizeof(pEntity->name));
+                        bot_name[sizeof(pEntity->name) - 1] = '\0'; // Ensure null-termination
+                        bot_name.erase(bot_name.find_last_not_of(" \t\n\r\f\v") + 1);
+
                         if (health > 0 && health <= 100)
                         {
-                            std::cout << "Bot #" << i << " | Health: " << health << "\n";
+                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Health: " << health << "\n";
                             botCount++;
                         }
-                        else if (health == 4294967288)
+                        else
                         {
-                            std::cout << "Bot #" << i << " is Dead \n"; // add "friendly/enemy" bots
+                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Dead\n";
                         }
-
-                        //int botCountAllies = botCount - botCount / 2;
-						//int botCountEnemies = botCount - botCountAllies; ??? maybe - needs test 
-                        //botname = 0x205
-                        //use PlayerCount               >>>>>>[ac_client.exe + 0x18AC0C]   up here<<<<
                     }
                     catch (...)
                     {
