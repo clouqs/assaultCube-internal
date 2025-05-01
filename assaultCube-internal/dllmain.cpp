@@ -2,12 +2,6 @@
 #include <iostream>
 #include "mem.h"
 
-
-
-
-
-// Created with ReClass.NET 1.2 by KN4CK3R
-
 class ent
 {
 public:
@@ -39,17 +33,13 @@ public:
     char pad_018C[80]; //0x018C
     int32_t number_of_kills; //0x01DC
     char pad_01E0[32]; //0x01E0
-	char name[16]; //0x0205
-    char pad_020C[268]; //0x020C
+    char name[19]; //0x0205
+    char pad_0210[264]; //0x0210 (adjusted padding)
     bool is_dead; //0x0318
     char pad_0319[75]; //0x0319
     class N000002EE* weapon_in_hand; //0x0364
     char pad_0368[480]; //0x0368
 }; //Size: 0x0548
-
-
-//above is for padding
-
 
 DWORD WINAPI HackThread(HMODULE hModule)
 {
@@ -65,31 +55,28 @@ DWORD WINAPI HackThread(HMODULE hModule)
     std::cout << "[F3]  No Recoil   : <OFF>\n";
     std::cout << "[F4]  No Reload   : <OFF>\n";
     std::cout << "[F5]  Add 10 Grenades\n";
-	std::cout << "[F6] Show Bot list\n";
+    std::cout << "[F6] Show Bot list\n";
     std::cout << "================================\n";
     std::cout << "[INS] Exit\n";
     std::cout << "\n";
     std::cout << "\n";
     std::cout << R"(
-
    ____ _                 _     
   / ___| | ___  _   _  __| |___ 
  | |   | |/ _ \| | | |/ _` / __|
  | |___| | (_) | |_| | (_| \__ \                       
   \____|_|\___/ \__,_|\__,_|___/
-
-)" << std::endl; //idk it just looks cool
-
+)" << std::endl;
 
     uintptr_t moduleBase = (uintptr_t)GetModuleHandle(L"ac_client.exe");
-    moduleBase = (uintptr_t)GetModuleHandle(NULL);
+    if (!moduleBase) {
+        moduleBase = (uintptr_t)GetModuleHandle(NULL);
+    }
 
-    bool bHealth = false, bAmmo = false, bRecoil = false, bNoReload = false,
-        bGrenade = false;
-        
-    //random declarations
+    bool bHealth = false, bAmmo = false, bRecoil = false, bNoReload = false;
     bool updateDisplay = false;
     bool showHealth = false;
+
     while (true)
     {
         ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
@@ -136,13 +123,25 @@ DWORD WINAPI HackThread(HMODULE hModule)
             updateDisplay = true;
         }
 
+        //int botCountAllies = botCount - botCount / 2;
+        //int botCountEnemies = botCount - botCountAllies; ??? maybe - needs test 
+        //botname = 0x205
+        //use PlayerCount               >>>>>>[ac_client.exe + 0x18AC0C]   up here
+
+
+        //Just update Health, should take less performance
+        //make color display, enemy = red, ally = green
+        //first half of the list is enemies, second half is allies (idk how to do it)
+
         if (showHealth)
         {
             system("cls");
             std::cout << "Bot list - health\n";
 
             uintptr_t entityListPtr = *(uintptr_t*)(moduleBase + 0x18AC04);
-			uintptr_t entityListSize = *(uintptr_t*)(moduleBase + 0x18AC0C);
+            uintptr_t entityListSize = *(uintptr_t*)(moduleBase + 0x18AC0C);
+            int botcount = 0;
+
             if (entityListPtr)
             {
                 ent** entityList = (ent**)entityListPtr;
@@ -152,24 +151,17 @@ DWORD WINAPI HackThread(HMODULE hModule)
                     ent* pEntity = entityList[i];
                     if (!pEntity || pEntity == localPlayer || IsBadReadPtr(pEntity, sizeof(ent)))
                         continue;
-                        //int botCountAllies = botCount - botCount / 2;
-                        //int botCountEnemies = botCount - botCountAllies; ??? maybe - needs test 
-                        //botname = 0x205
-                        //use PlayerCount               >>>>>>[ac_client.exe + 0x18AC0C]   up here
 
-
-                    //Just update Health, should take less performance
-                    //make color display, enemy = red, ally = green
-                    
                     try
                     {
                         int health = pEntity->player_health;
                         std::string bot_name(pEntity->name, sizeof(pEntity->name));
-                        bot_name[sizeof(pEntity->name) - 1] = '\0'; // Ensure null-termination
+                        bot_name[sizeof(pEntity->name) - 1] = '\0';
 
                         if (health > 0 && health <= 100)
                         {
                             std::cout << "Bot #" << i << " | Name: " << bot_name << " | Health: " << health << "\n";
+                            botcount++;
                         }
                         else
                         {
@@ -181,7 +173,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
                         std::cout << "Bot #" << i << " | Error reading data\n";
                     }
                 }
-                std::cout << "\nTotal bots alive: " << entityListSize << "\n";
+                std::cout << "\nTotal bots alive: " << botcount << " (player not counted) " << "\n";
             }
             else
             {
@@ -210,16 +202,13 @@ DWORD WINAPI HackThread(HMODULE hModule)
             {
                 localPlayer->player_health = 1000;
             }
-            else
-            {
-                localPlayer->player_health = 100;
-            }
 
             if (bAmmo)
             {
                 mem::Nop((BYTE*)(moduleBase + 0xC73EF), 2);
             }
-            else {
+            else
+            {
                 mem::Patch((BYTE*)(moduleBase + 0xC73EF), (BYTE*)"\xFF\x08", 2);
             }
 
@@ -227,7 +216,8 @@ DWORD WINAPI HackThread(HMODULE hModule)
             {
                 mem::Nop((BYTE*)(moduleBase + 0xC8FC7), 2);
             }
-            else {
+            else
+            {
                 mem::Patch((BYTE*)(moduleBase + 0xC8FC7), (BYTE*)"\x01\x01", 2);
             }
 
@@ -243,7 +233,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
         Sleep(5);
     }
 
-    fclose(f);
+    if (f) fclose(f);
     FreeConsole();
     FreeLibraryAndExitThread(hModule, 0);
     return 0;
@@ -254,7 +244,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)HackThread, hModule, 0, nullptr);
+        CloseHandle(CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)HackThread, hModule, 0, nullptr));
         break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
