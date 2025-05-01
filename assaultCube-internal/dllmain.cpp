@@ -90,7 +90,6 @@ DWORD WINAPI HackThread(HMODULE hModule)
     //random declarations
     bool updateDisplay = false;
     bool showHealth = false;
-    int botCount = 0;
     while (true)
     {
         ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
@@ -134,7 +133,6 @@ DWORD WINAPI HackThread(HMODULE hModule)
         if (GetAsyncKeyState(VK_F6) & 1)
         {
             showHealth = !showHealth;
-            botCount = 0;
             updateDisplay = true;
         }
 
@@ -148,7 +146,6 @@ DWORD WINAPI HackThread(HMODULE hModule)
             if (entityListPtr)
             {
                 ent** entityList = (ent**)entityListPtr;
-                botCount = 0;
 
                 for (int i = 1; i < entityListSize; i++)
                 {
@@ -162,18 +159,17 @@ DWORD WINAPI HackThread(HMODULE hModule)
 
 
                     //Just update Health, should take less performance
+                    //make color display, enemy = red, ally = green
                     
                     try
                     {
                         int health = pEntity->player_health;
                         std::string bot_name(pEntity->name, sizeof(pEntity->name));
                         bot_name[sizeof(pEntity->name) - 1] = '\0'; // Ensure null-termination
-                        bot_name.erase(bot_name.find_last_not_of(" \t\n\r\f\v") + 1);
 
                         if (health > 0 && health <= 100)
                         {
                             std::cout << "Bot #" << i << " | Name: " << bot_name << " | Health: " << health << "\n";
-                            botCount++;
                         }
                         else
                         {
@@ -185,7 +181,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
                         std::cout << "Bot #" << i << " | Error reading data\n";
                     }
                 }
-                std::cout << "\nTotal bots alive: " << botCount << "\n";
+                std::cout << "\nTotal bots alive: " << entityListSize << "\n";
             }
             else
             {
