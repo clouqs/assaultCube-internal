@@ -165,7 +165,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
                         }
                         else
                         {
-                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Dead\n";
+                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Dead "<<"\n";
                         }
                     }
                     catch (...)
