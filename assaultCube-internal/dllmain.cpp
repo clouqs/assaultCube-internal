@@ -75,6 +75,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
 
     bool bHealth = false, bAmmo = false, bRecoil = false, bNoReload = false;
     bool updateDisplay = false;
+    bool firstDisplay = true;
     bool showHealth = false;
 
     while (true)
@@ -123,20 +124,14 @@ DWORD WINAPI HackThread(HMODULE hModule)
             updateDisplay = true;
         }
 
-        //int botCountAllies = botCount - botCount / 2;
-        //int botCountEnemies = botCount - botCountAllies; ??? maybe - needs test 
-        //botname = 0x205
-        //use PlayerCount               >>>>>>[ac_client.exe + 0x18AC0C]   up here
-
-
-        //Just update Health, should take less performance
-        //make color display, enemy = red, ally = green
-        //first half of the list is enemies, second half is allies (idk how to do it)
-
         if (showHealth)
         {
-            system("cls");
-            std::cout << "Bot list - health\n";
+            if (firstDisplay) // Add this flag to track first display
+            {
+                system("cls");
+                std::cout << "Bot list - health\n";
+                firstDisplay = false;
+            }
 
             uintptr_t entityListPtr = *(uintptr_t*)(moduleBase + 0x18AC04);
             uintptr_t entityListSize = *(uintptr_t*)(moduleBase + 0x18AC0C);
@@ -145,6 +140,12 @@ DWORD WINAPI HackThread(HMODULE hModule)
             if (entityListPtr)
             {
                 ent** entityList = (ent**)entityListPtr;
+                HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+                CONSOLE_SCREEN_BUFFER_INFO csbi;
+                GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+                // Save initial cursor position for the list
+                COORD initialPos = csbi.dwCursorPosition;
 
                 for (int i = 1; i < entityListSize; i++)
                 {
@@ -158,21 +159,42 @@ DWORD WINAPI HackThread(HMODULE hModule)
                         std::string bot_name(pEntity->name, sizeof(pEntity->name));
                         bot_name[sizeof(pEntity->name) - 1] = '\0';
 
+                        // Move cursor to the right position for this bot
+                        COORD pos = { initialPos.X, initialPos.Y + (SHORT)i - 1 };
+                        SetConsoleCursorPosition(hConsole, pos);
+
                         if (health > 0 && health <= 100)
                         {
-                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Health: " << health << "\n";
+                            // Determine color based on team (you'll need to implement team detection)
+                            // For now using red for all bots
+                            SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_INTENSITY);
+                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Health: " << health;
+                            // Clear the rest of the line in case previous text was longer
+                            std::cout << "               \r";
                             botcount++;
                         }
                         else
                         {
-                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Dead "<<"\n";
+                            SetConsoleTextAttribute(hConsole, FOREGROUND_RED);
+                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Dead";
+                            // Clear the rest of the line
+                            std::cout << "               \r";
                         }
                     }
                     catch (...)
                     {
-                        std::cout << "Bot #" << i << " | Error reading data\n";
+                        COORD pos = { initialPos.X, initialPos.Y + (SHORT)i - 1 };
+                        SetConsoleCursorPosition(hConsole, pos);
+                        std::cout << "Bot #" << i << " | Error reading data";
+                        // Clear the rest of the line
+                        std::cout << "               \r";
                     }
                 }
+
+                // Move cursor to bottom position for the count
+                COORD countPos = { initialPos.X, initialPos.Y + (SHORT)entityListSize };
+                SetConsoleCursorPosition(hConsole, countPos);
+                SetConsoleTextAttribute(hConsole, csbi.wAttributes); // Reset color
                 std::cout << "\nTotal bots alive: " << botcount << " (player not counted) " << "\n";
             }
             else
@@ -180,54 +202,62 @@ DWORD WINAPI HackThread(HMODULE hModule)
                 std::cout << "Entity list not found!\n";
             }
         }
-        else if (updateDisplay)
+        else 
         {
-            system("cls");
-            std::cout << "===== assaultMe - internal =====\n";
-            std::cout << "[F1]  Health Hack : <" << (bHealth ? "ON" : "OFF") << ">\n";
-            std::cout << "[F2]  Ammo Hack   : <" << (bAmmo ? "ON" : "OFF") << ">\n";
-            std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON" : "OFF") << ">\n";
-            std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON" : "OFF") << ">\n";
-            std::cout << "[F5]  Add 10 Grenades\n";
-            std::cout << "[F6] Show Bot list : <" << (showHealth ? "ON" : "OFF") << ">\n";
-            std::cout << "================================\n";
-            std::cout << "[INS] Exit\n";
-
-            updateDisplay = false;
-        }
-
-        if (localPlayer)
-        {
-            if (bHealth)
+            firstDisplay = true;
+            if (updateDisplay)
             {
-                localPlayer->player_health = 1000;
+                system("cls");
+                std::cout << "===== assaultMe - internal =====\n";
+                std::cout << "[F1]  Health Hack : <" << (bHealth ? "ON" : "OFF") << ">\n";
+                std::cout << "[F2]  Ammo Hack   : <" << (bAmmo ? "ON" : "OFF") << ">\n";
+                std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON" : "OFF") << ">\n";
+                std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON" : "OFF") << ">\n";
+                std::cout << "[F5]  Add 10 Grenades\n";
+                std::cout << "[F6] Show Bot list : <" << (showHealth ? "ON" : "OFF") << ">\n";
+                std::cout << "================================\n";
+                std::cout << "[INS] Exit\n";
+
+                updateDisplay = false;
             }
 
-            if (bAmmo)
+            if (localPlayer)
             {
-                mem::Nop((BYTE*)(moduleBase + 0xC73EF), 2);
-            }
-            else
-            {
-                mem::Patch((BYTE*)(moduleBase + 0xC73EF), (BYTE*)"\xFF\x08", 2);
-            }
+                if (bHealth)
+                {
+                    localPlayer->player_health = 1000;
+                }
+                else
+                {
+					localPlayer->player_health; //needs to die to reset
+                }
 
-            if (bNoReload)
-            {
-                mem::Nop((BYTE*)(moduleBase + 0xC8FC7), 2);
-            }
-            else
-            {
-                mem::Patch((BYTE*)(moduleBase + 0xC8FC7), (BYTE*)"\x01\x01", 2);
-            }
+                if (bAmmo)
+                {
+                    mem::Nop((BYTE*)(moduleBase + 0xC73EF), 2);
+                }
+                else
+                {
+                    mem::Patch((BYTE*)(moduleBase + 0xC73EF), (BYTE*)"\xFF\x08", 2);
+                }
 
-            if (bRecoil)
-            {
-                mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
-            }
-            else
-            {
-                mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
+                if (bNoReload)
+                {
+                    mem::Nop((BYTE*)(moduleBase + 0xC8FC7), 2);
+                }
+                else
+                {
+                    mem::Patch((BYTE*)(moduleBase + 0xC8FC7), (BYTE*)"\x01\x01", 2);
+                }
+
+                if (bRecoil)
+                {
+                    mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
+                }
+                else
+                {
+                    mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
+                }
             }
         }
         Sleep(5);
