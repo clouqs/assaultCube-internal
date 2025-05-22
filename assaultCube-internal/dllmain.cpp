@@ -186,12 +186,10 @@ DWORD WINAPI HackThread(HMODULE hModule)
                         COORD pos = { initialPos.X, initialPos.Y + (SHORT)i - 1 };
                         SetConsoleCursorPosition(hConsole, pos);
                         std::cout << "Bot #" << i << " | Error reading data";
-                        // Clear the rest of the line
                         std::cout << "               \r";
                     }
                 }
 
-                // Move cursor to bottom position for the count
                 COORD countPos = { initialPos.X, initialPos.Y + (SHORT)entityListSize };
                 SetConsoleCursorPosition(hConsole, countPos);
                 SetConsoleTextAttribute(hConsole, csbi.wAttributes); // Reset color
