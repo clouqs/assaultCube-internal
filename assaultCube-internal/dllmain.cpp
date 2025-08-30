@@ -343,41 +343,46 @@ DWORD WINAPI HackThread(HMODULE hModule)
             std::cout << "================================\n";
             std::cout << "[INS] Exit\n";
 
-            updateDisplay = false;
-        }
-
-        if (localPlayer)
-        {
-            if (bHealth)
-            {
-                localPlayer->player_health = 1000;
+                updateDisplay = false;
             }
 
-            if (bAmmo)
+            if (localPlayer)
             {
-                mem::Nop((BYTE*)(moduleBase + 0xC73EF), 2);
-            }
-            else
-            {
-                mem::Patch((BYTE*)(moduleBase + 0xC73EF), (BYTE*)"\xFF\x08", 2);
-            }
+                if (bHealth)
+                {
+                    localPlayer->player_health = 1000;
+                }
+                else
+                {
+					localPlayer->player_health; //needs to die to reset
+                }
 
-            if (bNoReload)
-            {
-                mem::Nop((BYTE*)(moduleBase + 0xC8FC7), 2);
-            }
-            else
-            {
-                mem::Patch((BYTE*)(moduleBase + 0xC8FC7), (BYTE*)"\x01\x01", 2);
-            }
+                if (bAmmo)
+                {
+                    mem::Nop((BYTE*)(moduleBase + 0xC73EF), 2);
+                }
+                else
+                {
+                    mem::Patch((BYTE*)(moduleBase + 0xC73EF), (BYTE*)"\xFF\x08", 2);
+                }
 
-            if (bRecoil)
-            {
-                mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
-            }
-            else
-            {
-                mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
+                if (bNoReload)
+                {
+                    mem::Nop((BYTE*)(moduleBase + 0xC8FC7), 2);
+                }
+                else
+                {
+                    mem::Patch((BYTE*)(moduleBase + 0xC8FC7), (BYTE*)"\x01\x01", 2);
+                }
+
+                if (bRecoil)
+                {
+                    mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
+                }
+                else
+                {
+                    mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
+                }
             }
         }
         Sleep(5);
@@ -394,8 +399,16 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        CloseHandle(CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)HackThread, hModule, 0, nullptr));
+    {
+        // Create a new scope with braces to properly handle the thread variable
+        HANDLE hThread = CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)HackThread, hModule, 0, nullptr);
+        if (hThread)
+        {
+            CloseHandle(hThread);
+        }
+        // Even if thread creation fails, we still return TRUE unless we want to prevent DLL loading
         break;
+    }
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
     case DLL_PROCESS_DETACH:
