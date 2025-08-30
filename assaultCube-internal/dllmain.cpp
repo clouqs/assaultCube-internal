@@ -1,7 +1,9 @@
 #include "stdafx.h"
 #include <iostream>
+#include <string>
 #include "mem.h"
 
+#pragma pack(push, 1)
 class ent
 {
 public:
@@ -37,9 +39,195 @@ public:
     char pad_0210[264]; //0x0210 (adjusted padding)
     bool is_dead; //0x0318
     char pad_0319[75]; //0x0319
-    class N000002EE* weapon_in_hand; //0x0364
+    void* weapon_in_hand; //0x0364 - Cambiato da class N000002EE* a void*
     char pad_0368[480]; //0x0368
 }; //Size: 0x0548
+#pragma pack(pop)
+
+// Variabili globali necessarie
+uintptr_t moduleBase = 0;
+ent* localPlayer = nullptr;
+bool showBotHealth = false;
+HANDLE botConsoleThread = nullptr;
+
+DWORD WINAPI BotConsole(LPVOID)
+{
+    // Alloca una nuova console separata per i bot
+    AllocConsole();
+    FILE* f;
+    freopen_s(&f, "CONOUT$", "w", stdout);
+
+    // Imposta il titolo della finestra console
+    SetConsoleTitle(L"Bot List - assaultMe");
+
+    std::cout << "===== Bot List Console =====\n";
+    std::cout << "========= by clouqs =========\n";
+    std::cout << "Press [F] to close this console\n";
+    std::cout << "=============================\n\n";
+
+    while (showBotHealth) // Changed condition to check the global flag
+    {
+        // Controlla se F è premuto per chiudere SOLO la console bot
+        if (GetAsyncKeyState('F') & 1)
+        {
+            showBotHealth = false; // Disattiva la visualizzazione bot
+            break;
+        }
+
+        // Clear screen and redraw header
+        system("cls");
+        std::cout << "===== Bot List Console =====\n";
+        std::cout << "========= by clouqs =========\n";
+        std::cout << "Press [F] to close this console\n";
+        std::cout << "=============================\n\n";
+
+        // Validate moduleBase before using it
+        if (!moduleBase) {
+            std::cout << "Module base not initialized!\n";
+            Sleep(1000);
+            continue;
+        }
+
+        // Safe memory reading with error checking
+        uintptr_t entityListPtr = 0;
+        uintptr_t entityListSize = 0;
+
+        try {
+            // Use safer memory reading
+            if (!IsBadReadPtr((void*)(moduleBase + 0x18AC04), sizeof(uintptr_t))) {
+                entityListPtr = *(uintptr_t*)(moduleBase + 0x18AC04);
+            }
+            if (!IsBadReadPtr((void*)(moduleBase + 0x18AC0C), sizeof(uintptr_t))) {
+                entityListSize = *(uintptr_t*)(moduleBase + 0x18AC0C);
+            }
+        }
+        catch (...) {
+            std::cout << "Error reading entity list pointers!\n";
+            Sleep(1000);
+            continue;
+        }
+
+        int botcount = 0;
+        int validEntities = 0;
+
+        if (entityListPtr && entityListSize > 0 && entityListSize < 1000) // Add sanity check
+        {
+            if (IsBadReadPtr((void*)entityListPtr, entityListSize * sizeof(void*))) {
+                std::cout << "Invalid entity list pointer!\n";
+                Sleep(1000);
+                continue;
+            }
+
+            ent** entityList = (ent**)entityListPtr;
+
+            for (int i = 1; i < (int)entityListSize; i++)
+            {
+                if (!showBotHealth) break; // Exit if flag changed during loop
+
+                // Safer entity validation
+                ent* pEntity = nullptr;
+                try {
+                    if (!IsBadReadPtr(&entityList[i], sizeof(ent*))) {
+                        pEntity = entityList[i];
+                    }
+                }
+                catch (...) {
+                    continue;
+                }
+
+                if (!pEntity || pEntity == localPlayer || IsBadReadPtr(pEntity, sizeof(ent)))
+                    continue;
+
+                try
+                {
+                    // Read health safely
+                    int health = 0;
+                    if (!IsBadReadPtr(&pEntity->player_health, sizeof(int32_t))) {
+                        health = pEntity->player_health;
+                    }
+                    else {
+                        continue;
+                    }
+
+                    // bot names needs a fix!
+                    char safeName[20] = { 0 }; // Initialize with zeros
+                    if (!IsBadReadPtr(pEntity->name, sizeof(pEntity->name))) {
+                        // Copy byte by byte to handle potential bad memory
+                        bool nameValid = false;
+                        for (int nameIdx = 0; nameIdx < sizeof(pEntity->name) - 1; nameIdx++) {
+                            if (!IsBadReadPtr(&pEntity->name[nameIdx], 1)) {
+                                char c = pEntity->name[nameIdx];
+                                if (c == '\0') {
+                                    break; // End of string
+                                }
+                                if (c >= 32 && c <= 126) { // Printable ASCII
+                                    safeName[nameIdx] = c;
+                                    nameValid = true;
+                                }
+                                else {
+                                    safeName[nameIdx] = '_'; // Replace invalid chars
+                                }
+                            }
+                            else {
+                                break; // Stop on bad memory
+                            }
+                        }
+                        safeName[19] = '\0'; // Always null terminate
+
+                        // If no valid characters found, use default name
+                        if (!nameValid || safeName[0] == '\0') {
+                            strcpy_s(safeName, "Bot");
+                        }
+                    }
+                    else {
+                        strcpy_s(safeName, "Unknown");
+                    }
+
+                    validEntities++;
+
+                    // Check if health is in reasonable range
+                    if (health > 0 && health <= 1000) // Increased upper limit for modded health
+                    {
+                        std::cout << "Bot #" << i << " | Name: " << safeName << " | Health: " << health << " | ALIVE\n";
+                        botcount++;
+                    }
+                    else if (health <= 0)
+                    {
+                        std::cout << "Bot #" << i << " | Name: " << safeName << " | DEAD\n";
+                    }
+                    else
+                    {
+                        // Skip entities with unreasonable health values (likely invalid)
+                        continue;
+                    }
+                }
+                catch (...)
+                {
+                    std::cout << "Bot #" << i << " | Error reading entity data\n";
+                }
+            }
+
+            std::cout << "\n=============================\n";
+            std::cout << "Total bots alive: " << botcount << "\n";
+            std::cout << "Valid entities processed: " << validEntities << "\n";
+            std::cout << "Total entities: " << (int)entityListSize - 1 << " (excluding player)\n";
+        }
+        else
+        {
+            std::cout << "Entity list not found, empty, or invalid size!\n";
+            std::cout << "EntityListPtr: 0x" << std::hex << entityListPtr << std::dec << "\n";
+            std::cout << "EntityListSize: " << entityListSize << "\n";
+        }
+
+        Sleep(1000); // Increased sleep time to reduce flicker
+    }
+
+    // Cleanup
+    if (f) fclose(f);
+    FreeConsole();
+    botConsoleThread = nullptr; // Reset thread handle
+    return 0;
+}
 
 DWORD WINAPI HackThread(HMODULE hModule)
 {
@@ -68,23 +256,32 @@ DWORD WINAPI HackThread(HMODULE hModule)
   \____|_|\___/ \__,_|\__,_|___/
 )" << std::endl;
 
-    uintptr_t moduleBase = (uintptr_t)GetModuleHandle(L"ac_client.exe");
+    moduleBase = (uintptr_t)GetModuleHandle(L"ac_client.exe");
     if (!moduleBase) {
         moduleBase = (uintptr_t)GetModuleHandle(NULL);
     }
 
     bool bHealth = false, bAmmo = false, bRecoil = false, bNoReload = false;
     bool updateDisplay = false;
-    bool showHealth = false;
 
     while (true)
     {
-        ent* localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
+        localPlayer = *(ent**)(moduleBase + 0x0017E0A8); // Aggiornato localPlayer globale
 
         if (GetAsyncKeyState(VK_INSERT) & 1)
         {
+            // Clean shutdown of bot console if it's running
+            if (showBotHealth) {
+                showBotHealth = false;
+                if (botConsoleThread) {
+                    WaitForSingleObject(botConsoleThread, 2000); // Wait up to 2 seconds
+                    CloseHandle(botConsoleThread);
+                    botConsoleThread = nullptr;
+                }
+            }
             break;
         }
+
         if (GetAsyncKeyState(VK_F1) & 1)
         {
             bHealth = !bHealth;
@@ -119,68 +316,21 @@ DWORD WINAPI HackThread(HMODULE hModule)
 
         if (GetAsyncKeyState(VK_F6) & 1)
         {
-            showHealth = !showHealth;
-            updateDisplay = true;
-        }
-
-        //int botCountAllies = botCount - botCount / 2;
-        //int botCountEnemies = botCount - botCountAllies; ??? maybe - needs test 
-        //botname = 0x205
-        //use PlayerCount               >>>>>>[ac_client.exe + 0x18AC0C]   up here
-
-
-        //Just update Health, should take less performance
-        //make color display, enemy = red, ally = green
-        //first half of the list is enemies, second half is allies (idk how to do it)
-
-        if (showHealth)
-        {
-            system("cls");
-            std::cout << "Bot list - health\n";
-
-            uintptr_t entityListPtr = *(uintptr_t*)(moduleBase + 0x18AC04);
-            uintptr_t entityListSize = *(uintptr_t*)(moduleBase + 0x18AC0C);
-            int botcount = 0;
-
-            if (entityListPtr)
-            {
-                ent** entityList = (ent**)entityListPtr;
-
-                for (int i = 1; i < entityListSize; i++)
-                {
-                    ent* pEntity = entityList[i];
-                    if (!pEntity || pEntity == localPlayer || IsBadReadPtr(pEntity, sizeof(ent)))
-                        continue;
-
-                    try
-                    {
-                        int health = pEntity->player_health;
-                        std::string bot_name(pEntity->name, sizeof(pEntity->name));
-                        bot_name[sizeof(pEntity->name) - 1] = '\0';
-
-                        if (health > 0 && health <= 100)
-                        {
-                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Health: " << health << "\n";
-                            botcount++;
-                        }
-                        else
-                        {
-                            std::cout << "Bot #" << i << " | Name: " << bot_name << " | Dead "<<"\n";
-                        }
-                    }
-                    catch (...)
-                    {
-                        std::cout << "Bot #" << i << " | Error reading data\n";
-                    }
-                }
-                std::cout << "\nTotal bots alive: " << botcount << " (player not counted) " << "\n";
+            if (!showBotHealth && !botConsoleThread) {
+                // Start bot console
+                showBotHealth = true;
+                botConsoleThread = CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)BotConsole, nullptr, 0, nullptr);
+                updateDisplay = true;
             }
-            else
-            {
-                std::cout << "Entity list not found!\n";
+            else if (showBotHealth) {
+                // Stop bot console
+                showBotHealth = false;
+                updateDisplay = true;
+                // The thread will terminate itself when showBotHealth becomes false
             }
         }
-        else if (updateDisplay)
+
+        if (updateDisplay)
         {
             system("cls");
             std::cout << "===== assaultMe - internal =====\n";
@@ -189,7 +339,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
             std::cout << "[F3]  No Recoil   : <" << (bRecoil ? "ON" : "OFF") << ">\n";
             std::cout << "[F4]  No Reload   : <" << (bNoReload ? "ON" : "OFF") << ">\n";
             std::cout << "[F5]  Add 10 Grenades\n";
-            std::cout << "[F6] Show Bot list : <" << (showHealth ? "ON" : "OFF") << ">\n";
+            std::cout << "[F6] Show Bot list : <" << (showBotHealth ? "ON" : "OFF") << ">\n";
             std::cout << "================================\n";
             std::cout << "[INS] Exit\n";
 
@@ -239,7 +389,7 @@ DWORD WINAPI HackThread(HMODULE hModule)
     return 0;
 }
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 {
     switch (ul_reason_for_call)
     {
