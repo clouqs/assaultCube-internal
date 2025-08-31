@@ -61,6 +61,8 @@ static HWND       g_GameWindow = nullptr;
 static uintptr_t  moduleBase = 0;
 static ent* localPlayer = nullptr;
 static bool       imguiInitialized = false;
+static std::string cachedName = "Loading...";
+static bool nameRetrieved = false;
 
 static bool showMenu = true;
 static bool bHealth = false;
@@ -165,6 +167,43 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
 
     if (localPlayer)
     {
+        // Try to cache the name if not already retrieved
+        if (!nameRetrieved)
+        {
+            //// Method 1: Try struct field first
+            //if (localPlayer->name[0] != '\0' && isprint((unsigned char)localPlayer->name[0]))
+            //{
+            //    const char* raw = localPlayer->name;
+            //    size_t len = 0;
+            //    while (len < 19 && raw[len] != '\0' && isprint((unsigned char)raw[len])) {
+            //        ++len;
+            //    }
+            //    if (len > 0) {
+            //        cachedName.assign(raw, len);
+            //        nameRetrieved = true;
+            //        std::cout << "[Cache] Player name retrieved from struct: " << cachedName << "\n";
+            //    }
+            //}
+
+            // Method 2: Try offset 0x205 if struct field failed
+            if (!nameRetrieved)
+            {
+                char* namePtr = (char*)(localPlayer)+0x205;
+                if (namePtr && namePtr[0] != '\0' && isprint((unsigned char)namePtr[0])) //Checks the first character isn't a null terminator (empty string)
+                {
+                    size_t len = 0;
+                    while (len < 19 && namePtr[len] != '\0' && isprint((unsigned char)namePtr[len])) {
+                        ++len;
+                    }
+                    if (len > 0) {
+                        cachedName.assign(namePtr, len);
+                        nameRetrieved = true;
+                        std::cout << "[Cache] Player name retrieved from offset 0x205: " << cachedName << "\n";
+                    }
+                }
+            }
+        }
+
         if (bHealth)
         {
             localPlayer->player_health = 1000;
@@ -208,7 +247,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         {
             ImGui::Text("HP: %d  | Armor: %d", localPlayer->player_health, localPlayer->armor_quantity);
             ImGui::Text("Pos: %.1f, %.1f, %.1f", localPlayer->X, localPlayer->Y, localPlayer->Z);
-            ImGui::Text("Name: %s", localPlayer->name);
+            ImGui::Text("Name: %s", cachedName.c_str());
             ImGui::Text("Kills: %d", localPlayer->number_of_kills);
             ImGui::Separator();
         }
@@ -275,7 +314,7 @@ static bool HookOpenGL()
 static DWORD WINAPI HackThread(HMODULE hModule)
 {
     moduleBase = (uintptr_t)GetModuleHandleW(L"ac_client.exe");
-	//allocconsole can be removed. add log page to menu instead.
+    //allocconsole can be removed. add log page to menu instead.
     AllocConsole();
     FILE* f = nullptr;
     freopen_s(&f, "CONOUT$", "w", stdout);
