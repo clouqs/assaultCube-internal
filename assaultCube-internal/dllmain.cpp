@@ -14,7 +14,7 @@
 #pragma comment(lib, "minhook.x32.lib")
 
 // -------------------------------------
-// Entity structure (same as your original)
+// Entity structure
 // -------------------------------------
 class ent {
 public:
@@ -85,14 +85,13 @@ static WNDPROC oWndProc = nullptr;
 // -------------------------------------
 static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    // Handle all our keys first, before ImGui or the game gets them
     if (msg == WM_KEYDOWN)
     {
         if (wParam == VK_INSERT)
         {
             showMenu = !showMenu;
             std::cout << "[WndProc] Toggled menu: " << showMenu << "\n";
-            return 0; // eat key
+            return 0;
         }
 
         if (showMenu)
@@ -102,21 +101,19 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             case VK_UP:
                 currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
                 std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
-                return 0; // eat key
+                return 0;
             case VK_DOWN:
                 currentSelection = (currentSelection + 1) % maxSelections;
                 std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
-                return 0; // eat key
+                return 0;
             case VK_RETURN:
-            case VK_SPACE:
-                // Toggle selected option
                 switch (currentSelection)
                 {
                 case 0: bHealth = !bHealth; std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n"; break;
                 case 1: bAmmo = !bAmmo; std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n"; break;
                 case 2: bRecoil = !bRecoil; std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n"; break;
                 case 3: bNoReload = !bNoReload; std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n"; break;
-                case 4: // Heal button
+                case 4:
                     if (localPlayer)
                     {
                         localPlayer->player_health = 100;
@@ -125,12 +122,11 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     }
                     break;
                 }
-                return 0; // eat key
+                return 0;
             }
         }
     }
 
-    // Let ImGui handle other input only if menu is open
     if (showMenu && imguiInitialized)
     {
         if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
@@ -145,7 +141,6 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 // -------------------------------------
 static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
 {
-    // One-time ImGui init
     if (!imguiInitialized)
     {
         g_GameWindow = WindowFromDC(hdc);
@@ -155,7 +150,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-        io.IniFilename = nullptr; // don't write imgui.ini
+        io.IniFilename = nullptr;
 
         ImGui::StyleColorsDark();
         ImGui_ImplWin32_Init(g_GameWindow);
@@ -166,10 +161,8 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         std::cout << "[Init] ImGui initialized and WndProc hooked (wglSwapBuffers)\n";
     }
 
-    // Update local player pointer
     localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
 
-    // Apply patches
     if (localPlayer)
     {
         if (bHealth)
@@ -194,23 +187,21 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
             mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
     }
 
-    // Backup OpenGL state
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
 
-    // Draw ImGui
     ImGui_ImplOpenGL2_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
     if (showMenu)
     {
-        ImGui::SetNextWindowPos(ImVec2(10.f, 10.f), ImGuiCond_Always); // Top-left corner
+        ImGui::SetNextWindowPos(ImVec2(10.f, 10.f), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(420.f, 320.f), ImGuiCond_Once);
 
         ImGui::Begin("AssaultCube Internal - by clouqs", &showMenu, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
         ImGui::Text("Press INSERT to toggle this menu");
-        ImGui::Text("Use UP/DOWN arrows to navigate, ENTER/SPACE to select");
+        ImGui::Text("Use UP/DOWN arrows to navigate, ENTER to select");
         ImGui::Separator();
 
         if (localPlayer)
@@ -224,67 +215,25 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
 
         ImGui::Text("Combat Hacks:");
 
-        // God Mode checkbox with selection highlight
-        if (currentSelection == 0)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Yellow
-            ImGui::Text("> God Mode (Health): %s", bHealth ? "[ON]" : "[OFF]");
-            ImGui::PopStyleColor();
-        }
-        else
-        {
-            ImGui::Text("  God Mode (Health): %s", bHealth ? "[ON]" : "[OFF]");
-        }
+        auto drawOption = [&](int idx, const char* label, bool enabled = false) {
+            if (currentSelection == idx)
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
 
-        // Infinite Ammo checkbox with selection highlight
-        if (currentSelection == 1)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Yellow
-            ImGui::Text("> Infinite Ammo: %s", bAmmo ? "[ON]" : "[OFF]");
-            ImGui::PopStyleColor();
-        }
-        else
-        {
-            ImGui::Text("  Infinite Ammo: %s", bAmmo ? "[ON]" : "[OFF]");
-        }
+            if (idx == 4)
+                ImGui::Text("%s[HEAL NOW]", currentSelection == idx ? "> " : "  ");
+            else
+                ImGui::Text("%s%s: %s", currentSelection == idx ? "> " : "  ", label, enabled ? "[ON]" : "[OFF]");
 
-        // No Recoil checkbox with selection highlight
-        if (currentSelection == 2)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Yellow
-            ImGui::Text("> No Recoil: %s", bRecoil ? "[ON]" : "[OFF]");
-            ImGui::PopStyleColor();
-        }
-        else
-        {
-            ImGui::Text("  No Recoil: %s", bRecoil ? "[ON]" : "[OFF]");
-        }
+            if (currentSelection == idx)
+                ImGui::PopStyleColor();
+            };
 
-        // No Reload checkbox with selection highlight
-        if (currentSelection == 3)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Yellow
-            ImGui::Text("> No Reload: %s", bNoReload ? "[ON]" : "[OFF]");
-            ImGui::PopStyleColor();
-        }
-        else
-        {
-            ImGui::Text("  No Reload: %s", bNoReload ? "[ON]" : "[OFF]");
-        }
-
+        drawOption(0, "God Mode (Health)", bHealth);
+        drawOption(1, "Infinite Ammo", bAmmo);
+        drawOption(2, "No Recoil", bRecoil);
+        drawOption(3, "No Reload", bNoReload);
         ImGui::Separator();
-
-        // Heal button with selection highlight
-        if (currentSelection == 4)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Yellow
-            ImGui::Text("> [HEAL NOW]");
-            ImGui::PopStyleColor();
-        }
-        else
-        {
-            ImGui::Text("  [HEAL NOW]");
-        }
+        drawOption(4, "");
 
         ImGui::End();
     }
@@ -293,7 +242,6 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
     ImGui::Render();
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 
-    // Restore OpenGL state
     glPopClientAttrib();
     glPopAttrib();
 
@@ -307,32 +255,15 @@ static bool HookOpenGL()
 {
     HMODULE hOpenGL32 = GetModuleHandleA("opengl32.dll");
     if (!hOpenGL32)
-    {
-        std::cout << "[Hook] opengl32.dll not found!\n";
         return false;
-    }
 
     void* wglSwapBuffersAddr = GetProcAddress(hOpenGL32, "wglSwapBuffers");
     if (!wglSwapBuffersAddr)
-    {
-        std::cout << "[Hook] wglSwapBuffers not found!\n";
         return false;
-    }
 
-    if (MH_Initialize() != MH_OK) {
-        std::cout << "[MinHook] Init failed!\n";
-        return false;
-    }
-
-    if (MH_CreateHook(wglSwapBuffersAddr, &hkwglSwapBuffers, reinterpret_cast<LPVOID*>(&owglSwapBuffers)) != MH_OK) {
-        std::cout << "[MinHook] CreateHook(wglSwapBuffers) failed!\n";
-        return false;
-    }
-
-    if (MH_EnableHook(wglSwapBuffersAddr) != MH_OK) {
-        std::cout << "[MinHook] EnableHook(wglSwapBuffers) failed!\n";
-        return false;
-    }
+    if (MH_Initialize() != MH_OK) return false;
+    if (MH_CreateHook(wglSwapBuffersAddr, &hkwglSwapBuffers, reinterpret_cast<LPVOID*>(&owglSwapBuffers)) != MH_OK) return false;
+    if (MH_EnableHook(wglSwapBuffersAddr) != MH_OK) return false;
 
     std::cout << "[MinHook] wglSwapBuffers hooked at " << wglSwapBuffersAddr << "\n";
     return true;
@@ -344,13 +275,12 @@ static bool HookOpenGL()
 static DWORD WINAPI HackThread(HMODULE hModule)
 {
     moduleBase = (uintptr_t)GetModuleHandleW(L"ac_client.exe");
-
+	//allocconsole can be removed. add log page to menu instead.
     AllocConsole();
     FILE* f = nullptr;
     freopen_s(&f, "CONOUT$", "w", stdout);
     std::cout << "AssaultCube Internal Hack Loaded (OpenGL Version)\n";
 
-    // Wait for OpenGL to be loaded
     while (!GetModuleHandleA("opengl32.dll")) Sleep(100);
 
     if (!HookOpenGL())
@@ -362,101 +292,19 @@ static DWORD WINAPI HackThread(HMODULE hModule)
         return 0;
     }
 
-    std::cout << "OpenGL hooks installed. Press INSERT to toggle menu, UP/DOWN to navigate, ENTER/SPACE to select, END to exit.\n";
+    std::cout << "OpenGL hooks installed. Press INSERT to toggle menu, UP/DOWN to navigate, ENTER to select, END to exit.\n";
 
-    // Async key polling with more aggressive checking
+    // Async loop only checks END to exit
     while (true)
     {
         if (GetAsyncKeyState(VK_END) & 1) break;
-
-        // Check INSERT key
-        if (GetAsyncKeyState(VK_INSERT) & 1)
-        {
-            showMenu = !showMenu;
-            std::cout << "[AsyncKeyState] Toggled menu: " << showMenu << "\n";
-        }
-
-        // Only handle navigation if menu is open
-        if (showMenu)
-        {
-            // Use GetAsyncKeyState with bit 1 to detect key press (not just held)
-            static bool upPressed = false, downPressed = false, enterPressed = false, spacePressed = false;
-
-            bool upState = (GetAsyncKeyState(VK_UP) & 0x8000) != 0;
-            bool downState = (GetAsyncKeyState(VK_DOWN) & 0x8000) != 0;
-            bool enterState = (GetAsyncKeyState(VK_RETURN) & 0x8000) != 0;
-            bool spaceState = (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
-
-            // UP key
-            if (upState && !upPressed)
-            {
-                currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
-                std::cout << "[AsyncKeyState] UP - Selection: " << currentSelection << "\n";
-            }
-            upPressed = upState;
-
-            // DOWN key  
-            if (downState && !downPressed)
-            {
-                currentSelection = (currentSelection + 1) % maxSelections;
-                std::cout << "[AsyncKeyState] DOWN - Selection: " << currentSelection << "\n";
-            }
-            downPressed = downState;
-
-            // ENTER key
-            if (enterState && !enterPressed)
-            {
-                switch (currentSelection)
-                {
-                case 0: bHealth = !bHealth; std::cout << "[AsyncKeyState] Toggle God Mode: " << bHealth << "\n"; break;
-                case 1: bAmmo = !bAmmo; std::cout << "[AsyncKeyState] Toggle Infinite Ammo: " << bAmmo << "\n"; break;
-                case 2: bRecoil = !bRecoil; std::cout << "[AsyncKeyState] Toggle No Recoil: " << bRecoil << "\n"; break;
-                case 3: bNoReload = !bNoReload; std::cout << "[AsyncKeyState] Toggle No Reload: " << bNoReload << "\n"; break;
-                case 4:
-                    if (localPlayer)
-                    {
-                        localPlayer->player_health = 100;
-                        localPlayer->armor_quantity = 100;
-                        std::cout << "[AsyncKeyState] Player healed!\n";
-                    }
-                    break;
-                }
-            }
-            enterPressed = enterState;
-
-            // SPACE key
-            if (spaceState && !spacePressed)
-            {
-                switch (currentSelection)
-                {
-                case 0: bHealth = !bHealth; std::cout << "[AsyncKeyState] Toggle God Mode: " << bHealth << "\n"; break;
-                case 1: bAmmo = !bAmmo; std::cout << "[AsyncKeyState] Toggle Infinite Ammo: " << bAmmo << "\n"; break;
-                case 2: bRecoil = !bRecoil; std::cout << "[AsyncKeyState] Toggle No Recoil: " << bRecoil << "\n"; break;
-                case 3: bNoReload = !bNoReload; std::cout << "[AsyncKeyState] Toggle No Reload: " << bNoReload << "\n"; break;
-                case 4:
-                    if (localPlayer)
-                    {
-                        localPlayer->player_health = 100;
-                        localPlayer->armor_quantity = 100;
-                        std::cout << "[AsyncKeyState] Player healed!\n";
-                    }
-                    break;
-                }
-            }
-            spacePressed = spaceState;
-        }
-
-        Sleep(16); // ~60fps checking
+        Sleep(16);
     }
 
-    // Cleanup
     if (imguiInitialized)
     {
         if (g_GameWindow && oWndProc)
-        {
             SetWindowLongPtrW(g_GameWindow, GWLP_WNDPROC, (LONG_PTR)oWndProc);
-            oWndProc = nullptr;
-        }
         ImGui_ImplOpenGL2_Shutdown();
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
