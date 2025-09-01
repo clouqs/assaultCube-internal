@@ -358,7 +358,6 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
     ImGui_ImplOpenGL2_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
-
     if (showMenu)
     {
         ImGui::SetNextWindowPos(ImVec2(10.f, 10.f), ImGuiCond_Always);
