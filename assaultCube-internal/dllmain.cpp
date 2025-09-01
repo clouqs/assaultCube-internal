@@ -107,8 +107,6 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             std::cout << "[WndProc] Toggled menu: " << showMenu << "\n";
             return 0;
         }
-
-        // Only handle navigation when menu is visible AND we're in the main tab
         if (showMenu)
         {
             switch (wParam)
