@@ -63,6 +63,9 @@ static ent* localPlayer = nullptr;
 static bool       imguiInitialized = false;
 static std::string cachedName = "Loading...";
 static bool nameRetrieved = false;
+static char setName[32] = "Dummy";
+static bool nameInputActive = false;
+static int nameInputCursor = 0;
 
 static bool showMenu = true;
 static bool bHealth = false;
@@ -70,9 +73,15 @@ static bool bAmmo = false;
 static bool bRecoil = false;
 static bool bNoReload = false;
 
+
+//delete later:
+bool dummy = false;
+float dummyfloat;
+
 // Menu navigation
 static int currentSelection = 0;
-static const int maxSelections = 5; // 4 checkboxes + 1 button
+static const int maxSelections = 5; 
+static int currentTab = 0;
 
 // OpenGL hooks
 using wglSwapBuffersFn = BOOL(WINAPI*)(HDC);
@@ -98,33 +107,96 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         if (showMenu)
         {
-            switch (wParam)
+            // Handle name input when it's active
+            if (nameInputActive && currentSelection == 5)
             {
-            case VK_UP:
-                currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
-                std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
-                return 0;
-            case VK_DOWN:
-                currentSelection = (currentSelection + 1) % maxSelections;
-                std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
-                return 0;
-            case VK_RETURN:
-                switch (currentSelection)
+                switch (wParam)
                 {
-                case 0: bHealth = !bHealth; std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n"; break;
-                case 1: bAmmo = !bAmmo; std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n"; break;
-                case 2: bRecoil = !bRecoil; std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n"; break;
-                case 3: bNoReload = !bNoReload; std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n"; break;
-                case 4:
-                    if (localPlayer)
+                case VK_ESCAPE:
+                    nameInputActive = false;
+                    std::cout << "[WndProc] Name input deactivated\n";
+                    return 0;
+                case VK_RETURN:
+                    nameInputActive = false;
+                    std::cout << "[WndProc] Name input confirmed\n";
+                    return 0;
+                case VK_BACK:
+                    if (nameInputCursor > 0)
                     {
-                        localPlayer->player_health = 100;
-                        localPlayer->armor_quantity = 100;
-                        std::cout << "[WndProc Action] Player healed!\n";
+                        nameInputCursor--;
+                        setName[nameInputCursor] = '\0';
+                        // Shift remaining characters
+                        for (int i = nameInputCursor; i < 31; i++)
+                        {
+                            setName[i] = setName[i + 1];
+                        }
                     }
-                    break;
+                    return 0;
+                case VK_LEFT:
+                    if (nameInputCursor > 0) nameInputCursor--;
+                    return 0;
+                case VK_RIGHT:
+                    if (nameInputCursor < strlen(setName) && nameInputCursor < 31) nameInputCursor++;
+                    return 0;
+                default:
+                    // Handle character input
+                    if (wParam >= 32 && wParam <= 126 && nameInputCursor < 31) // Printable ASCII
+                    {
+                        // Shift characters to make room
+                        for (int i = 31; i > nameInputCursor; i--)
+                        {
+                            setName[i] = setName[i - 1];
+                        }
+                        setName[nameInputCursor] = (char)wParam;
+                        nameInputCursor++;
+                        setName[31] = '\0'; // Ensure null termination
+                    }
+                    return 0;
                 }
-                return 0;
+            }
+            else
+            {
+                switch (wParam)
+                {
+                case VK_UP:
+                    currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
+                    std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
+                    return 0;
+                case VK_DOWN:
+                    currentSelection = (currentSelection + 1) % maxSelections;
+                    std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
+                    return 0;
+                case VK_RETURN:
+                    switch (currentSelection)
+                    {
+                    case 0: bHealth = !bHealth; std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n"; break;
+                    case 1: bAmmo = !bAmmo; std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n"; break;
+                    case 2: bRecoil = !bRecoil; std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n"; break;
+                    case 3: bNoReload = !bNoReload; std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n"; break;
+                    case 4:
+                        if (localPlayer)
+                        {
+                            localPlayer->player_health = 100;
+                            localPlayer->armor_quantity = 100;
+                            std::cout << "[WndProc Action] Player healed!\n";
+                        }
+                        break;
+                    case 5: // Name input field
+                        nameInputActive = !nameInputActive;
+                        nameInputCursor = strlen(setName);
+                        std::cout << "[WndProc] Name input " << (nameInputActive ? "activated" : "deactivated") << "\n";
+                        break;
+                    case 6: // Apply Name button
+                        if (localPlayer)
+                        {
+                            strncpy_s(localPlayer->name, setName, sizeof(localPlayer->name) - 1);
+                            localPlayer->name[sizeof(localPlayer->name) - 1] = '\0';
+                            std::cout << "[WndProc Action] Player name changed to: " << localPlayer->name << "\n";
+                        }
+                        break;
+                    }
+                    return 0;
+                }
             }
         }
     }
@@ -242,40 +314,104 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         ImGui::Text("Press INSERT to toggle this menu");
         ImGui::Text("Use UP/DOWN arrows to navigate, ENTER to select");
         ImGui::Separator();
-
-        if (localPlayer)
+        if (ImGui::BeginTabBar("MainTabs"))
         {
-            ImGui::Text("HP: %d  | Armor: %d", localPlayer->player_health, localPlayer->armor_quantity);
-            ImGui::Text("Pos: %.1f, %.1f, %.1f", localPlayer->X, localPlayer->Y, localPlayer->Z);
-            ImGui::Text("Name: %s", cachedName.c_str());
-            ImGui::Text("Kills: %d", localPlayer->number_of_kills);
-            ImGui::Separator();
+            // Cycle tabs with TAB key
+            if (ImGui::IsKeyPressed(ImGuiKey_Tab))
+                currentTab = (currentTab + 1) % 3;
+
+            if (ImGui::BeginTabItem("Misc", nullptr,currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0))    // misc first
+            {
+                ImGui::Text("Combat Hacks:");
+
+                auto drawOption = [&](int idx, const char* label, bool enabled = false) {
+                    if (currentSelection == idx)
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+
+                    if (idx == 4)
+                        ImGui::Text("%s[Heal Player]", currentSelection == idx ? "> " : "  ");
+                    else
+                        ImGui::Text("%s%s: %s", currentSelection == idx ? "> " : "  ", label, enabled ? "[ON]" : "[OFF]");
+
+                    if (currentSelection == idx)
+                        ImGui::PopStyleColor();
+                    };
+
+                drawOption(0, "God Mode (Health)", bHealth);
+                drawOption(1, "Infinite Ammo", bAmmo);
+                drawOption(2, "No Recoil", bRecoil);
+                drawOption(3, "No Reload", bNoReload);
+                drawOption(4, "");
+                ImGui::Spacing();
+				ImGui::Separator();
+                if (localPlayer)
+                {
+                    ImGui::Text("HP: %d  | Armor: %d", localPlayer->player_health, localPlayer->armor_quantity);
+					ImGui::Spacing();
+                    ImGui::Text("Position  -  X: %.1f, Y: %.1f, Z: %.1f", localPlayer->X, localPlayer->Y, localPlayer->Z);
+                    ImGui::Text("Head angles  -  Yaw: %.2f, Pitch: %.2f", localPlayer->lookleft_right, localPlayer->lookup_down);
+                    ImGui::Spacing();
+                    ImGui::Text("Name: %s", cachedName.c_str());
+                    ImGui::Text("Kills: %d", localPlayer->number_of_kills);
+                    ImGui::NewLine();
+					
+                }
+
+				// Name changer - will re-implement later
+                // 
+                //if (currentSelection == 5)            //change global 
+                //{
+                //    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+                //    ImGui::Text("> Change player name: %s%s",
+                //        nameInputActive ? setName : setName,
+                //        nameInputActive ? "_" : "");
+                //    ImGui::PopStyleColor();
+                //    if (nameInputActive)
+                //    {
+                //        ImGui::SameLine();
+                //        ImGui::Text("(ESC to exit, ENTER to confirm)");
+                //    }
+                //}
+                //else
+                //{
+                //    ImGui::Text("  Change player name: %s", setName);
+                //}
+
+                //// Apply Name button with keyboard navigation
+                //if (currentSelection == 6)
+                //{
+                //    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+                //    ImGui::Text("> [APPLY NAME]");
+                //    ImGui::PopStyleColor();
+                //}
+                //else
+                //{
+                //    ImGui::Text("  [APPLY NAME]");
+                //}
+
+
+                ImGui::EndTabItem();  
+            }
+
+            if (ImGui::BeginTabItem("ESP", nullptr,currentTab == 1 ? ImGuiTabItemFlags_SetSelected : 0)) // esp second
+            {
+                ImGui::Checkbox("Enable ESP", &dummy);
+                ImGui::Checkbox("Draw Boxes", &dummy);
+                ImGui::EndTabItem();   
+            }
+
+            if (ImGui::BeginTabItem("Aimbot", nullptr,currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0)) // aimbot last
+            {
+                ImGui::Checkbox("Enable Aimbot", &dummy);
+                ImGui::SliderFloat("FOV", &dummyfloat, 1.0f, 180.0f);
+                ImGui::EndTabItem();   
+            }
+
+            ImGui::EndTabBar(); 
         }
-
-        ImGui::Text("Combat Hacks:");
-
-        auto drawOption = [&](int idx, const char* label, bool enabled = false) {
-            if (currentSelection == idx)
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
-
-            if (idx == 4)
-                ImGui::Text("%s[HEAL NOW]", currentSelection == idx ? "> " : "  ");
-            else
-                ImGui::Text("%s%s: %s", currentSelection == idx ? "> " : "  ", label, enabled ? "[ON]" : "[OFF]");
-
-            if (currentSelection == idx)
-                ImGui::PopStyleColor();
-            };
-
-        drawOption(0, "God Mode (Health)", bHealth);
-        drawOption(1, "Infinite Ammo", bAmmo);
-        drawOption(2, "No Recoil", bRecoil);
-        drawOption(3, "No Reload", bNoReload);
-        ImGui::Separator();
-        drawOption(4, "");
-
-        ImGui::End();
+		ImGui::End();
     }
+
 
     ImGui::EndFrame();
     ImGui::Render();
