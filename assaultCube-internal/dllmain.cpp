@@ -84,6 +84,7 @@ static float currentSpeed = 0.0f; // Added missing variable
 // Menu navigation
 static int currentSelection = 0;
 static const int MainCheatSelections = 7;
+static const int ESPSelections = 2;
 static int currentTab = 0;
 
 // OpenGL hooks
@@ -314,11 +315,8 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
 
         if (ImGui::BeginTabBar("MainTabs"))
         {
-            // Handle tab switching via TAB key (moved to WndProc)
-
             if (ImGui::BeginTabItem("Main Cheat", nullptr, currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0))
             {
-                // Custom drawing function for keyboard navigation
                 auto drawOption = [&](int idx, const char* label, bool enabled) {
                     if (currentSelection == idx) {
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Yellow highlight
