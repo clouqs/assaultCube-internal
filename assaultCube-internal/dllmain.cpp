@@ -9,6 +9,7 @@
 #include "imgui/imgui_impl_opengl2.h"
 #include "minhook/MinHook.h"
 #include "mem.h"
+#include "Speed.h"
 
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "minhook.x32.lib")
@@ -54,58 +55,17 @@ public:
     char   pad_0368[480];
 };
 
-//public:
-//    char pad_0000[4];					//0x0000 - 0x04
-//    Vector3 HeadPos;					//0x0004 - 0x10
-//    Vector3 Velocity;					//0x0010 - 0x1C
-//    char pad_001C[12];					//0x001C - 0x28
-//    Vector3 PlayerPos;					//0x0028 - 0x34
-//    Vector3 ViewAngles;					//0x0034 - 0x40
-//    char pad_idk[25];					//0x40 - 0x5D
-//    int32_t OnGround;					//0x5D - 0x61
-//    char pad_idk2[19];					//0x61 -0x74
-//    uint16_t SpeedHacks;				//0x74 - 0x76
-//    uint16_t NoClip;					//0x76 - 0x78
-//    char pad_0040[116];					//0x78 - 0xEC
-//    int32_t PlayerHealth;				//0xEC - 0xF0
-//    int32_t Armor;						//0x00F0
-//    char pad_00F4[20];					//0x00F4
-//    int32_t PistolAmmo2;				//0x0108
-//    char pad_010C[16];					//0x010C
-//    int32_t AssaultRifleAmmo2;			//0x011C
-//    char pad_0120[12];					//0x0120
-//    int32_t PistolAmmo1;				//0x012C
-//    char pad_0130[16];					//0x0130
-//    int32_t AssaultRifleAmmo1;			//0x0140
-//    char pad_0144[12];					//0x0144
-//    int32_t PistolReloadDelay;			//0x0150
-//    char pad_0154[16];					//0x0154
-//    int32_t AssaultRifleReloadDelay;	//0x0164
-//    char pad_0168[12];					//0x0168
-//    int32_t AmountOfShotsFired;			//0x0174
-//    char pad_0178[100];					//0x0178
-//    int32_t BlueTeamScore;				//0x01DC
-//    char pad_01E0[37];					//0x01E0
-//    char Name[16];						//0x0205
-//    char pad_0215[247];					//0x0215
-//    int32_t Team;						//0x030C
-//    char pad_030C[8];					//0x314
-//    int32_t IsAlive;					//0x318 - 0x31C
-//    char pad_0302[76];					//0x368
-//    OInventory* Inventory;				//0x368 - 0x37C
-
 // -------------------------------------
 // Globals
 // -------------------------------------
 static HWND       g_GameWindow = nullptr;
 static uintptr_t  moduleBase = 0;
 static ent* localPlayer = nullptr;
+static BYTE localPlayer_check = 0;
 static bool       imguiInitialized = false;
 static std::string cachedName = "Loading...";
 static bool nameRetrieved = false;
 static char setName[32] = "Dummy";
-static bool nameInputActive = false;
-static int nameInputCursor = 0;
 
 static bool showMenu = true;
 static bool bHealth = false;
@@ -113,15 +73,17 @@ static bool bAmmo = false;
 static bool bRecoil = false;
 static bool bNoReload = false;
 static bool bNoClip = false;
-
+static bool bSpeed = false;
+static bool bHealed = false;
 
 //delete later:
 bool dummy = false;
 float dummyfloat;
+static float currentSpeed = 0.0f; // Added missing variable
 
 // Menu navigation
 static int currentSelection = 0;
-static const int maxSelections = 6; 
+static const int MainCheatSelections = 7;
 static int currentTab = 0;
 
 // OpenGL hooks
@@ -146,101 +108,56 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             return 0;
         }
 
+        // Only handle navigation when menu is visible AND we're in the main tab
         if (showMenu)
         {
-            // Handle name input when it's active
-            if (nameInputActive && currentSelection == 5)
+            switch (wParam)
             {
-                switch (wParam)
+            case VK_UP:
+                currentSelection = (currentSelection - 1 + MainCheatSelections) % MainCheatSelections;
+                std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
+                return 0;
+            case VK_DOWN:
+                currentSelection = (currentSelection + 1) % MainCheatSelections;
+                std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
+                return 0;
+            case VK_RETURN:
+                switch (currentSelection)
                 {
-                case VK_ESCAPE:
-                    nameInputActive = false;
-                    std::cout << "[WndProc] Name input deactivated\n";
-                    return 0;
-                case VK_RETURN:
-                    nameInputActive = false;
-                    std::cout << "[WndProc] Name input confirmed\n";
-                    return 0;
-                case VK_BACK:
-                    if (nameInputCursor > 0)
-                    {
-                        nameInputCursor--;
-                        setName[nameInputCursor] = '\0';
-                        // Shift remaining characters
-                        for (int i = nameInputCursor; i < 31; i++)
-                        {
-                            setName[i] = setName[i + 1];
-                        }
-                    }
-                    return 0;
-                case VK_LEFT:
-                    if (nameInputCursor > 0) nameInputCursor--;
-                    return 0;
-                case VK_RIGHT:
-                    if (nameInputCursor < strlen(setName) && nameInputCursor < 31) nameInputCursor++;
-                    return 0;
-                default:
-                    // Handle character input
-                    if (wParam >= 32 && wParam <= 126 && nameInputCursor < 31) // Printable ASCII
-                    {
-                        // Shift characters to make room
-                        for (int i = 31; i > nameInputCursor; i--)
-                        {
-                            setName[i] = setName[i - 1];
-                        }
-                        setName[nameInputCursor] = (char)wParam;
-                        nameInputCursor++;
-                        setName[31] = '\0'; // Ensure null termination
-                    }
-                    return 0;
+                case 0:
+                    bHealth = !bHealth;
+                    std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n";
+                    break;
+                case 1:
+                    bAmmo = !bAmmo;
+                    std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n";
+                    break;
+                case 2:
+                    bRecoil = !bRecoil;
+                    std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n";
+                    break;
+                case 3:
+                    bNoReload = !bNoReload;
+                    std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n";
+                    break;
+                case 4:
+                    bNoClip = !bNoClip;
+                    std::cout << "[WndProc Toggle] NoClip: " << bNoClip << "\n";
+                    break;
+                case 5:
+                    bSpeed = !bSpeed;
+                    std::cout << "[WndProc Toggle] Speed Hack: " << bSpeed << "\n";
+                    break;
+                case 6:
+                    bHealed = true;  // Set to true to trigger healing once
+                    std::cout << "[WndProc Toggle] Heal Player activated\n";
+                    break;
                 }
-            }
-            else
-            {
-                switch (wParam)
-                {
-                case VK_UP:
-                    currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
-                    std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
-                    return 0;
-                case VK_DOWN:
-                    currentSelection = (currentSelection + 1) % maxSelections;
-                    std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
-                    return 0;
-                case VK_RETURN:
-                    switch (currentSelection)
-                    {
-                    case 0:
-                        bHealth = !bHealth;
-                        std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n";
-                        break;
-                    case 1:
-                        bAmmo = !bAmmo;
-                        std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n";
-                        break;
-                    case 2:
-                        bRecoil = !bRecoil;
-                        std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n";
-                        break;
-                    case 3:
-                        bNoReload = !bNoReload;
-                        std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n";
-                        break;
-                    case 4:
-                        if (localPlayer)
-                        {
-                            localPlayer->player_health = 100;
-                            localPlayer->armor_quantity = 100;
-                            std::cout << "[WndProc Action] Player healed!\n";
-                        }
-                        break;
-                    case 5:
-                        bNoClip = !bNoClip;
-                        std::cout << "[WndProc Toggle] NoClip: " << bNoClip << "\n";
-                        break;
-                    }
-                    return 0;
-                }
+                return 0;
+            case VK_TAB:
+                currentTab = (currentTab + 1) % 3;
+                std::cout << "[WndProc Navigation] Tab: " << currentTab << "\n";
+                return 0;
             }
         }
     }
@@ -280,42 +197,25 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
     }
 
     localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
+	localPlayer_check = *(BYTE*)((uintptr_t)localPlayer + 0x104);
 
-    if (localPlayer)
+    if (localPlayer && localPlayer_check == 1)
     {
         // Try to cache the name if not already retrieved
         if (!nameRetrieved)
         {
-            //// Method 1: Try struct field first
-            //if (localPlayer->name[0] != '\0' && isprint((unsigned char)localPlayer->name[0]))
-            //{
-            //    const char* raw = localPlayer->name;
-            //    size_t len = 0;
-            //    while (len < 19 && raw[len] != '\0' && isprint((unsigned char)raw[len])) {
-            //        ++len;
-            //    }
-            //    if (len > 0) {
-            //        cachedName.assign(raw, len);
-            //        nameRetrieved = true;
-            //        std::cout << "[Cache] Player name retrieved from struct: " << cachedName << "\n";
-            //    }
-            //}
-
             // Method 2: Try offset 0x205 if struct field failed
-            if (!nameRetrieved)
+            char* namePtr = (char*)(localPlayer)+0x205;
+            if (namePtr && namePtr[0] != '\0' && isprint((unsigned char)namePtr[0])) //Checks the first character isn't a null terminator (empty string)
             {
-                char* namePtr = (char*)(localPlayer)+0x205;
-                if (namePtr && namePtr[0] != '\0' && isprint((unsigned char)namePtr[0])) //Checks the first character isn't a null terminator (empty string)
-                {
-                    size_t len = 0;
-                    while (len < 19 && namePtr[len] != '\0' && isprint((unsigned char)namePtr[len])) {
-                        ++len;
-                    }
-                    if (len > 0) {
-                        cachedName.assign(namePtr, len);
-                        nameRetrieved = true;
-                        std::cout << "[Cache] Player name retrieved from offset 0x205: " << cachedName << "\n";
-                    }
+                size_t len = 0;
+                while (len < 19 && namePtr[len] != '\0' && isprint((unsigned char)namePtr[len])) {
+                    ++len;
+                }
+                if (len > 0) {
+                    cachedName.assign(namePtr, len);
+                    nameRetrieved = true;
+                    std::cout << "[Cache] Player name retrieved from offset 0x205: " << cachedName << "\n";
                 }
             }
         }
@@ -340,16 +240,62 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
             mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
         else
             mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
-
         if (bNoClip)
         {
-            *(DWORD*)((char*)localPlayer + 0x76) = 00000004;  
+            *(DWORD*)((char*)localPlayer + 0x76) = 00000004;
         }
         else
         {
-            *(DWORD*)((char*)localPlayer + 0x76) = 00000000;  
+            *(DWORD*)((char*)localPlayer + 0x76) = 00000000;
         }
 
+        if (bSpeed && localPlayer)
+        {
+            static float speedMultiplier = 3.0f; // speed multiplier
+
+            // Get current velocity
+            float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
+            float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
+
+            if (velocity_x && velocity_y)
+            {
+                // Calculate direction based on view angles
+                float forwardX, forwardY;
+                float yaw = localPlayer->lookleft_right;
+                CalculateDirection(yaw, forwardX, forwardY);
+                NormalizeVector(forwardX, forwardY);
+
+                *velocity_x = forwardX * speedMultiplier;
+                *velocity_y = forwardY * speedMultiplier;
+
+                // Calculate current speed for display
+                currentSpeed = sqrtf(*velocity_x * *velocity_x + *velocity_y * *velocity_y);
+            }
+        }
+        else if (!bSpeed && localPlayer)
+        {
+            float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
+            float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
+
+            if (velocity_x && velocity_y)
+            {
+                float speed = sqrtf(*velocity_x * *velocity_x + *velocity_y * *velocity_y);
+                currentSpeed = speed;
+
+                if (speed > 10.0f) // Threshold for normal movement (potentially useless without silder [to add])
+                {
+                    *velocity_x = 0.0f;
+                    *velocity_y = 0.0f;
+                    currentSpeed = 0.0f;
+                }
+            }
+        }
+        if (bHealed && localPlayer)
+        {
+            localPlayer->player_health = 100;
+            localPlayer->armor_quantity = 100;
+            bHealed = false;
+        }
     }
 
     glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -365,107 +311,74 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
 
         ImGui::Begin("AssaultCube Internal - by clouqs", &showMenu, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
         ImGui::Text("Press INSERT to toggle this menu");
-        ImGui::Text("Use UP/DOWN arrows to navigate, ENTER to select");
+        ImGui::Text("Use UP/DOWN arrows to navigate, ENTER to select, TAB to switch tabs");
         ImGui::Separator();
+
         if (ImGui::BeginTabBar("MainTabs"))
         {
-            // Cycle tabs with TAB key
-            if (ImGui::IsKeyPressed(ImGuiKey_Tab))
-                currentTab = (currentTab + 1) % 3;
+            // Handle tab switching via TAB key (moved to WndProc)
 
-            if (ImGui::BeginTabItem("Misc", nullptr,currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0))    // misc first
+            if (ImGui::BeginTabItem("Main Cheat", nullptr, currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0))
             {
-                ImGui::Text("Combat Hacks:");
-
-                auto drawOption = [&](int idx, const char* label, bool enabled = false) {
-                    if (currentSelection == idx)
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
-
-                    if (idx == 4)
-                        ImGui::Text("%s[Heal Player]", currentSelection == idx ? "> " : "  ");
-                    else
-                        ImGui::Text("%s%s: %s", currentSelection == idx ? "> " : "  ", label, enabled ? "[ON]" : "[OFF]");
-
-                    if (currentSelection == idx)
+                // Custom drawing function for keyboard navigation
+                auto drawOption = [&](int idx, const char* label, bool enabled) {
+                    if (currentSelection == idx) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Yellow highlight
+                        ImGui::Text("> %s: %s", label, enabled ? "[ON]" : "[OFF]");
                         ImGui::PopStyleColor();
+                    }
+                    else {
+                        ImGui::Text("  %s: %s", label, enabled ? "[ON]" : "[OFF]");
+                    }
                     };
 
-                drawOption(0, "God Mode (Health)", bHealth);
+                drawOption(0, "God Mode", bHealth);
                 drawOption(1, "Infinite Ammo", bAmmo);
                 drawOption(2, "No Recoil", bRecoil);
                 drawOption(3, "No Reload", bNoReload);
-                drawOption(4, "");
-				drawOption(5, "No Clip", bNoClip);
+                drawOption(4, "No Clip", bNoClip);
+                drawOption(5, "Speed Hack", bSpeed);
+				drawOption(6, "Heal Player", bHealed);
+
                 ImGui::Spacing();
-				ImGui::Separator();
+                ImGui::Separator();
+
                 if (localPlayer)
                 {
                     ImGui::Text("HP: %d  | Armor: %d", localPlayer->player_health, localPlayer->armor_quantity);
-					ImGui::Spacing();
+                    ImGui::Spacing();
                     ImGui::Text("Position  -  X: %.1f, Y: %.1f, Z: %.1f", localPlayer->X, localPlayer->Y, localPlayer->Z);
                     ImGui::Text("Head angles  -  Yaw: %.2f, Pitch: %.2f", localPlayer->lookleft_right, localPlayer->lookup_down);
                     ImGui::Spacing();
+                    ImGui::Text("Speed: %.1f", currentSpeed);
                     ImGui::Text("Name: %s", cachedName.c_str());
                     ImGui::Text("Kills: %d", localPlayer->number_of_kills);
                     ImGui::NewLine();
-					
                 }
 
-				// Name changer - will re-implement later
-                // 
-                //if (currentSelection == 5)            //change global 
-                //{
-                //    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
-                //    ImGui::Text("> Change player name: %s%s",
-                //        nameInputActive ? setName : setName,
-                //        nameInputActive ? "_" : "");
-                //    ImGui::PopStyleColor();
-                //    if (nameInputActive)
-                //    {
-                //        ImGui::SameLine();
-                //        ImGui::Text("(ESC to exit, ENTER to confirm)");
-                //    }
-                //}
-                //else
-                //{
-                //    ImGui::Text("  Change player name: %s", setName);
-                //}
-
-                //// Apply Name button with keyboard navigation
-                //if (currentSelection == 6)
-                //{
-                //    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
-                //    ImGui::Text("> [APPLY NAME]");
-                //    ImGui::PopStyleColor();
-                //}
-                //else
-                //{
-                //    ImGui::Text("  [APPLY NAME]");
-                //}
-
-
-                ImGui::EndTabItem();  
+                ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("ESP", nullptr,currentTab == 1 ? ImGuiTabItemFlags_SetSelected : 0)) // esp second
+            if (ImGui::BeginTabItem("ESP", nullptr, currentTab == 1 ? ImGuiTabItemFlags_SetSelected : 0))
             {
+                ImGui::Text("ESP features coming soon...");
                 ImGui::Checkbox("Enable ESP", &dummy);
                 ImGui::Checkbox("Draw Boxes", &dummy);
-                ImGui::EndTabItem();   
+                ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Aimbot", nullptr,currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0)) // aimbot last
+            if (ImGui::BeginTabItem("Aimbot", nullptr, currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0))
             {
+                ImGui::Text("Aimbot features coming soon...");
                 ImGui::Checkbox("Enable Aimbot", &dummy);
                 ImGui::SliderFloat("FOV", &dummyfloat, 1.0f, 180.0f);
-                ImGui::EndTabItem();   
+                ImGui::EndTabItem();
             }
 
-            ImGui::EndTabBar(); 
+            ImGui::EndTabBar();
         }
-		ImGui::End();
+        ImGui::End();
     }
-
 
     ImGui::EndFrame();
     ImGui::Render();
@@ -523,7 +436,6 @@ static DWORD WINAPI HackThread(HMODULE hModule)
 
     std::cout << "OpenGL hooks installed. Press INSERT to toggle menu, UP/DOWN to navigate, ENTER to select, END to exit.\n";
 
-    // Async loop only checks END to exit
     while (true)
     {
         if (GetAsyncKeyState(VK_END) & 1) break;

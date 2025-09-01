@@ -169,6 +169,7 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="mem.cpp" />
     <ClCompile Include="proc.cpp" />
+    <ClCompile Include="Speed.h" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <ItemGroup>

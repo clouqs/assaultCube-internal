@@ -31,6 +31,9 @@
     <Filter Include="minhook">
       <UniqueIdentifier>{fb34c26e-69f0-47b1-8366-1876073be233}</UniqueIdentifier>
     </Filter>
+    <Filter Include="external features">
+      <UniqueIdentifier>{47db9c08-361d-46eb-903d-4f97620ede6b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -112,6 +115,9 @@
     </ClCompile>
     <ClCompile Include="imgui\imgui_impl_opengl2.cpp">
       <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Speed.h">
+      <Filter>external features</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
