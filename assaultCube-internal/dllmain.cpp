@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include <iostream>
 #include <string>
 #include <cmath>
@@ -54,6 +54,46 @@ public:
     char   pad_0368[480];
 };
 
+//public:
+//    char pad_0000[4];					//0x0000 - 0x04
+//    Vector3 HeadPos;					//0x0004 - 0x10
+//    Vector3 Velocity;					//0x0010 - 0x1C
+//    char pad_001C[12];					//0x001C - 0x28
+//    Vector3 PlayerPos;					//0x0028 - 0x34
+//    Vector3 ViewAngles;					//0x0034 - 0x40
+//    char pad_idk[25];					//0x40 - 0x5D
+//    int32_t OnGround;					//0x5D - 0x61
+//    char pad_idk2[19];					//0x61 -0x74
+//    uint16_t SpeedHacks;				//0x74 - 0x76
+//    uint16_t NoClip;					//0x76 - 0x78
+//    char pad_0040[116];					//0x78 - 0xEC
+//    int32_t PlayerHealth;				//0xEC - 0xF0
+//    int32_t Armor;						//0x00F0
+//    char pad_00F4[20];					//0x00F4
+//    int32_t PistolAmmo2;				//0x0108
+//    char pad_010C[16];					//0x010C
+//    int32_t AssaultRifleAmmo2;			//0x011C
+//    char pad_0120[12];					//0x0120
+//    int32_t PistolAmmo1;				//0x012C
+//    char pad_0130[16];					//0x0130
+//    int32_t AssaultRifleAmmo1;			//0x0140
+//    char pad_0144[12];					//0x0144
+//    int32_t PistolReloadDelay;			//0x0150
+//    char pad_0154[16];					//0x0154
+//    int32_t AssaultRifleReloadDelay;	//0x0164
+//    char pad_0168[12];					//0x0168
+//    int32_t AmountOfShotsFired;			//0x0174
+//    char pad_0178[100];					//0x0178
+//    int32_t BlueTeamScore;				//0x01DC
+//    char pad_01E0[37];					//0x01E0
+//    char Name[16];						//0x0205
+//    char pad_0215[247];					//0x0215
+//    int32_t Team;						//0x030C
+//    char pad_030C[8];					//0x314
+//    int32_t IsAlive;					//0x318 - 0x31C
+//    char pad_0302[76];					//0x368
+//    OInventory* Inventory;				//0x368 - 0x37C
+
 // -------------------------------------
 // Globals
 // -------------------------------------
@@ -72,6 +112,7 @@ static bool bHealth = false;
 static bool bAmmo = false;
 static bool bRecoil = false;
 static bool bNoReload = false;
+static bool bNoClip = false;
 
 
 //delete later:
@@ -80,7 +121,7 @@ float dummyfloat;
 
 // Menu navigation
 static int currentSelection = 0;
-static const int maxSelections = 5; 
+static const int maxSelections = 6; 
 static int currentTab = 0;
 
 // OpenGL hooks
@@ -169,10 +210,22 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 case VK_RETURN:
                     switch (currentSelection)
                     {
-                    case 0: bHealth = !bHealth; std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n"; break;
-                    case 1: bAmmo = !bAmmo; std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n"; break;
-                    case 2: bRecoil = !bRecoil; std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n"; break;
-                    case 3: bNoReload = !bNoReload; std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n"; break;
+                    case 0:
+                        bHealth = !bHealth;
+                        std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n";
+                        break;
+                    case 1:
+                        bAmmo = !bAmmo;
+                        std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n";
+                        break;
+                    case 2:
+                        bRecoil = !bRecoil;
+                        std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n";
+                        break;
+                    case 3:
+                        bNoReload = !bNoReload;
+                        std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n";
+                        break;
                     case 4:
                         if (localPlayer)
                         {
@@ -181,18 +234,9 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                             std::cout << "[WndProc Action] Player healed!\n";
                         }
                         break;
-                    case 5: // Name input field
-                        nameInputActive = !nameInputActive;
-                        nameInputCursor = strlen(setName);
-                        std::cout << "[WndProc] Name input " << (nameInputActive ? "activated" : "deactivated") << "\n";
-                        break;
-                    case 6: // Apply Name button
-                        if (localPlayer)
-                        {
-                            strncpy_s(localPlayer->name, setName, sizeof(localPlayer->name) - 1);
-                            localPlayer->name[sizeof(localPlayer->name) - 1] = '\0';
-                            std::cout << "[WndProc Action] Player name changed to: " << localPlayer->name << "\n";
-                        }
+                    case 5:
+                        bNoClip = !bNoClip;
+                        std::cout << "[WndProc Toggle] NoClip: " << bNoClip << "\n";
                         break;
                     }
                     return 0;
@@ -296,6 +340,16 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
             mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
         else
             mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
+
+        if (bNoClip)
+        {
+            *(DWORD*)((char*)localPlayer + 0x76) = 00000004;  
+        }
+        else
+        {
+            *(DWORD*)((char*)localPlayer + 0x76) = 00000000;  
+        }
+
     }
 
     glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -342,6 +396,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 drawOption(2, "No Recoil", bRecoil);
                 drawOption(3, "No Reload", bNoReload);
                 drawOption(4, "");
+				drawOption(5, "No Clip", bNoClip);
                 ImGui::Spacing();
 				ImGui::Separator();
                 if (localPlayer)
