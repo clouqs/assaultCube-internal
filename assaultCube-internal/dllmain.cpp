@@ -247,14 +247,12 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         {
             *(DWORD*)((char*)localPlayer + 0x76) = 00000000;
         }
-
+        // Get current velocity
+        float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
+        float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
         if (bSpeed && localPlayer)
         {
             static float speedMultiplier = 3.0f; // speed multiplier
-
-            // Get current velocity
-            float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
-            float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
 
             if (velocity_x && velocity_y)
             {
