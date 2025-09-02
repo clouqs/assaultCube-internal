@@ -75,6 +75,7 @@ static bool bNoReload = false;
 static bool bNoClip = false;
 static bool bSpeed = false;
 static bool bHealed = false;
+static float bFov = 90;
 
 //delete later:
 bool dummy = false;
@@ -113,49 +114,147 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             switch (wParam)
             {
             case VK_UP:
-                currentSelection = (currentSelection - 1 + MainCheatSelections) % MainCheatSelections;
-                std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
-                return 0;
+            {
+                int maxSelections = 0;
+                switch (currentTab) {
+                case 0: maxSelections = MainCheatSelections; break;  // Main: 7 options
+                case 1: maxSelections = 1; break;                    // Visuals: 1 option (Apply FOV)
+                case 2: maxSelections = 2; break;                    // ESP: 2 checkboxes
+                case 3: maxSelections = 2; break;                    // Aimbot: 2 options
+                }
+                if (maxSelections > 0) {
+                    currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
+                }
+                std::cout << "[WndProc Navigation] Tab: " << currentTab << " Selection: " << currentSelection << "\n";
+            }
+            return 0;
+
             case VK_DOWN:
-                currentSelection = (currentSelection + 1) % MainCheatSelections;
-                std::cout << "[WndProc Navigation] Selection: " << currentSelection << "\n";
-                return 0;
+            {
+                int maxSelections = 0;
+                switch (currentTab) {
+                case 0: maxSelections = MainCheatSelections; break;
+                case 1: maxSelections = 1; break;
+                case 2: maxSelections = 2; break;
+                case 3: maxSelections = 2; break;
+                }
+                if (maxSelections > 0) {
+                    currentSelection = (currentSelection + 1) % maxSelections;
+                }
+                std::cout << "[WndProc Navigation] Tab: " << currentTab << " Selection: " << currentSelection << "\n";
+            }
+            return 0;
+
             case VK_RETURN:
-                switch (currentSelection)
+                // Handle actions based on current tab
+                switch (currentTab)
                 {
-                case 0:
-                    bHealth = !bHealth;
-                    std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n";
+                case 0: // Main tab
+                    switch (currentSelection)
+                    {
+                    case 0:
+                        bHealth = !bHealth;
+                        std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n";
+                        break;
+                    case 1:
+                        bAmmo = !bAmmo;
+                        std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n";
+                        break;
+                    case 2:
+                        bRecoil = !bRecoil;
+                        std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n";
+                        break;
+                    case 3:
+                        bNoReload = !bNoReload;
+                        std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n";
+                        break;
+                    case 4:
+                        bNoClip = !bNoClip;
+                        std::cout << "[WndProc Toggle] NoClip: " << bNoClip << "\n";
+                        break;
+                    case 5:
+                        bSpeed = !bSpeed;
+                        std::cout << "[WndProc Toggle] Speed Hack: " << bSpeed << "\n";
+                        break;
+                    case 6:
+                        bHealed = true;
+                        std::cout << "[WndProc Toggle] Heal Player activated\n";
+                        break;
+                    }
                     break;
-                case 1:
-                    bAmmo = !bAmmo;
-                    std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n";
+
+                case 1: // Visuals tab
+                    switch (currentSelection)
+                    {
+                    case 0:
+                        // Apply current FOV value to game
+                        if (moduleBase != 0) {
+                            float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
+                            if (fovPtr) {
+                                *fovPtr = bFov;
+                                std::cout << "[WndProc] FOV applied: " << bFov << "\n";
+                            }
+                        }
+                        break;
+                    }
                     break;
-                case 2:
-                    bRecoil = !bRecoil;
-                    std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n";
+
+                case 2: // ESP tab
+                    switch (currentSelection)
+                    {
+                    case 0:
+                        dummy = !dummy; // Toggle ESP enable (placeholder)
+                        std::cout << "[WndProc Toggle] ESP Enable: " << dummy << "\n";
+                        break;
+                    case 1:
+                        // Toggle Draw Boxes (you'll need another bool for this)
+                        std::cout << "[WndProc Toggle] Draw Boxes toggled\n";
+                        break;
+                    }
                     break;
-                case 3:
-                    bNoReload = !bNoReload;
-                    std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n";
-                    break;
-                case 4:
-                    bNoClip = !bNoClip;
-                    std::cout << "[WndProc Toggle] NoClip: " << bNoClip << "\n";
-                    break;
-                case 5:
-                    bSpeed = !bSpeed;
-                    std::cout << "[WndProc Toggle] Speed Hack: " << bSpeed << "\n";
-                    break;
-                case 6:
-                    bHealed = true;  // Set to true to trigger healing once
-                    std::cout << "[WndProc Toggle] Heal Player activated\n";
+
+                case 3: // Aimbot tab
+                    switch (currentSelection)
+                    {
+                    case 0:
+                        dummy = !dummy; // Toggle Aimbot enable (placeholder)
+                        std::cout << "[WndProc Toggle] Aimbot Enable: " << dummy << "\n";
+                        break;
+                    case 1:
+                        // FOV adjustment could be handled here or with left/right arrows
+                        std::cout << "[WndProc] Aimbot FOV option selected\n";
+                        break;
+                    }
                     break;
                 }
                 return 0;
+
             case VK_TAB:
-                currentTab = (currentTab + 1) % 3;
-                std::cout << "[WndProc Navigation] Tab: " << currentTab << "\n";
+                currentTab = (currentTab + 1) % 4;
+                currentSelection = 0; // Reset selection when changing tabs
+                std::cout << "[WndProc Navigation] Changed to tab: " << currentTab << "\n";
+                return 0;
+
+            case VK_LEFT: // Add left/right for adjusting values
+                if (currentTab == 1 && currentSelection == 0) { // FOV adjustment
+                    bFov = max(60.0f, bFov - 5.0f);
+                    std::cout << "[WndProc] FOV decreased to: " << bFov << "\n";
+                }
+                else if (currentTab == 3 && currentSelection == 1) { // Aimbot FOV
+                    dummyfloat = max(1.0f, dummyfloat - 10.0f);
+                    std::cout << "[WndProc] Aimbot FOV decreased to: " << dummyfloat << "\n";
+                }
+                return 0;
+
+            case VK_RIGHT:
+                if (currentTab == 1 && currentSelection == 0) { // FOV adjustment
+                    bFov = min(170.0f, bFov + 5.0f);
+                    std::cout << "[WndProc] FOV increased to: " << bFov << "\n";
+                }
+                else if (currentTab == 3 && currentSelection == 1) { // Aimbot FOV
+                    dummyfloat = min(180.0f, dummyfloat + 10.0f);
+                    std::cout << "[WndProc] Aimbot FOV increased to: " << dummyfloat << "\n";
+                }
                 return 0;
             }
         }
@@ -194,9 +293,13 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         imguiInitialized = true;
         std::cout << "[Init] ImGui initialized and WndProc hooked (wglSwapBuffers)\n";
     }
-
+////get game pointers: 
     localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
 	localPlayer_check = *(BYTE*)((uintptr_t)localPlayer + 0x104);
+    
+    float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
+    float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
+    float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
 
     if (localPlayer && localPlayer_check == 1)
     {
@@ -247,9 +350,6 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         {
             *(DWORD*)((char*)localPlayer + 0x76) = 00000000;
         }
-        // Get current velocity
-        float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
-        float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
         if (bSpeed && localPlayer)
         {
             static float speedMultiplier = 3.0f; // speed multiplier
@@ -306,33 +406,43 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         ImGui::SetNextWindowPos(ImVec2(10.f, 10.f), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(420.f, 320.f), ImGuiCond_Once);
 
-        ImGui::Begin("AssaultCube Internal - by clouqs", &showMenu, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+        ImGui::Begin("Majorana - clouqs", &showMenu, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
         ImGui::Text("Press INSERT to toggle this menu");
         ImGui::Text("Use UP/DOWN arrows to navigate, ENTER to select, TAB to switch tabs");
         ImGui::Separator();
 
-        if (ImGui::BeginTabBar("MainTabs"))
+        if (ImGui::BeginTabBar("Tabs"))
         {
-            if (ImGui::BeginTabItem("Main Cheat", nullptr, currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0))
+            if (ImGui::BeginTabItem("Main", nullptr, currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0))
             {
-                auto drawOption = [&](int idx, const char* label, bool enabled) {
+                auto drawOptionMain = [&](int idx, const char* label, bool enabled, bool isAction = false) {
                     if (currentSelection == idx) {
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Yellow highlight
-                        ImGui::Text("> %s: %s", label, enabled ? "[ON]" : "[OFF]");
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Highlight
+                        if (isAction) {
+                            ImGui::Text("> %s", label); // just show the action
+                        }
+                        else {
+                            ImGui::Text("> %s: %s", label, enabled ? "[ON]" : "[OFF]");
+                        }
                         ImGui::PopStyleColor();
                     }
                     else {
-                        ImGui::Text("  %s: %s", label, enabled ? "[ON]" : "[OFF]");
+                        if (isAction) {
+                            ImGui::Text("  %s", label);
+                        }
+                        else {
+                            ImGui::Text("  %s: %s", label, enabled ? "[ON]" : "[OFF]");
+                        }
                     }
                     };
 
-                drawOption(0, "God Mode", bHealth);
-                drawOption(1, "Infinite Ammo", bAmmo);
-                drawOption(2, "No Recoil", bRecoil);
-                drawOption(3, "No Reload", bNoReload);
-                drawOption(4, "No Clip", bNoClip);
-                drawOption(5, "Speed Hack", bSpeed);
-				drawOption(6, "Heal Player", bHealed);
+                drawOptionMain(0, "God Mode", bHealth);
+                drawOptionMain(1, "Infinite Ammo", bAmmo);
+                drawOptionMain(2, "No Recoil", bRecoil);
+                drawOptionMain(3, "No Reload", bNoReload);
+                drawOptionMain(4, "No Clip", bNoClip);
+                drawOptionMain(5, "Speed Hack", bSpeed);
+				drawOptionMain(6, "Heal Player",false, true);
 
                 ImGui::Spacing();
                 ImGui::Separator();
@@ -341,8 +451,14 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 {
                     ImGui::Text("HP: %d  | Armor: %d", localPlayer->player_health, localPlayer->armor_quantity);
                     ImGui::Spacing();
+
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f)); // Orange
                     ImGui::Text("Position  -  X: %.1f, Y: %.1f, Z: %.1f", localPlayer->X, localPlayer->Y, localPlayer->Z);
+                    ImGui::PopStyleColor();
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.65f, 0.95f, 0.2f, 0.8f)); // Lime - i colori della sicilia :)
                     ImGui::Text("Head angles  -  Yaw: %.2f, Pitch: %.2f", localPlayer->lookleft_right, localPlayer->lookup_down);
+
+                    ImGui::PopStyleColor();
                     ImGui::Spacing();
                     ImGui::Text("Speed: %.1f", currentSpeed);
                     ImGui::Text("Name: %s", cachedName.c_str());
@@ -353,18 +469,83 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("ESP", nullptr, currentTab == 1 ? ImGuiTabItemFlags_SetSelected : 0))
+            if (ImGui::BeginTabItem("Visuals", nullptr, currentTab == 1 ? ImGuiTabItemFlags_SetSelected : 0))
             {
-                ImGui::Text("ESP features coming soon...");
-                ImGui::Checkbox("Enable ESP", &dummy);
-                ImGui::Checkbox("Draw Boxes", &dummy);
+                auto drawOptionVisuals = [&](int idx, const char* label, bool isAction = false) {
+                    if (currentTab == 1 && currentSelection == idx) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Highlight
+                        if (isAction) {
+                            ImGui::Text("> %s: %.1f (LEFT/RIGHT to adjust, ENTER to apply)", label, bFov);
+                        }
+                        ImGui::PopStyleColor();
+                    }
+                    else {
+                        if (isAction) {
+                            ImGui::Text("  %s: %.1f", label, bFov);
+                        }
+                    }
+                    };
+
+                ImGui::SliderFloat("Change Fov", &bFov, 60.0f, 170.0f);
+
+                // Show current game FOV if available
+                if (moduleBase != 0) {
+                    float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
+                    if (fovPtr) {
+                        ImGui::Text("Current Game FOV: %.1f", *fovPtr);
+                    }
+                }
+
+                drawOptionVisuals(0, "Apply FOV", true);
+                ImGui::Text("Tip: Use LEFT/RIGHT arrows to adjust, ENTER to apply to game");
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Aimbot", nullptr, currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0))
+            if (ImGui::BeginTabItem("ESP", nullptr, currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0))
             {
+                auto drawOptionESP = [&](int idx, const char* label, bool enabled) {
+                    if (currentTab == 2 && currentSelection == idx) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Highlight
+                        ImGui::Text("> %s: %s", label, enabled ? "[ON]" : "[OFF]");
+                        ImGui::PopStyleColor();
+                    }
+                    else {
+                        ImGui::Text("  %s: %s", label, enabled ? "[ON]" : "[OFF]");
+                    }
+                    };
+
+                ImGui::Text("ESP features coming soon...");
+                drawOptionESP(0, "Enable ESP", dummy);
+                drawOptionESP(1, "Draw Boxes", dummy); // You'll need a separate bool for this
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Aimbot", nullptr, currentTab == 3 ? ImGuiTabItemFlags_SetSelected : 0))
+            {
+                auto drawOptionAimbot = [&](int idx, const char* label, bool enabled, bool isSlider = false) {
+                    if (currentTab == 3 && currentSelection == idx) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Highlight
+                        if (isSlider) {
+                            ImGui::Text("> %s: %.1f (Use LEFT/RIGHT arrows)", label, dummyfloat);
+                        }
+                        else {
+                            ImGui::Text("> %s: %s", label, enabled ? "[ON]" : "[OFF]");
+                        }
+                        ImGui::PopStyleColor();
+                    }
+                    else {
+                        if (isSlider) {
+                            ImGui::Text("  %s: %.1f", label, dummyfloat);
+                        }
+                        else {
+                            ImGui::Text("  %s: %s", label, enabled ? "[ON]" : "[OFF]");
+                        }
+                    }
+                    };
+
                 ImGui::Text("Aimbot features coming soon...");
-                ImGui::Checkbox("Enable Aimbot", &dummy);
+                drawOptionAimbot(0, "Enable Aimbot", dummy);
+                drawOptionAimbot(1, "FOV", false, true);
                 ImGui::SliderFloat("FOV", &dummyfloat, 1.0f, 180.0f);
                 ImGui::EndTabItem();
             }
