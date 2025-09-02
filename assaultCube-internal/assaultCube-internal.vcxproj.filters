@@ -31,7 +31,7 @@
     <Filter Include="minhook">
       <UniqueIdentifier>{fb34c26e-69f0-47b1-8366-1876073be233}</UniqueIdentifier>
     </Filter>
-    <Filter Include="external features">
+    <Filter Include="features">
       <UniqueIdentifier>{47db9c08-361d-46eb-903d-4f97620ede6b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -117,7 +117,7 @@
       <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="Speed.h">
-      <Filter>external features</Filter>
+      <Filter>features</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
