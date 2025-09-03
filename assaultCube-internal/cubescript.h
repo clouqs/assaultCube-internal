@@ -26,5 +26,8 @@ bool ChangeName(); //specificare argomento come input da imgui inputtext field.
 //bool ChangeFov(const char* newFov);
 //bool ChangeSensitivity(const char* newSens);
 //bool ChangeGamma(const char* newGamma);
+
+
+
 // Utility functions - this should be declared in mem.h, but adding here for safety
 uintptr_t FindPattern(const char* moduleName, const char* pattern, const char* mask);

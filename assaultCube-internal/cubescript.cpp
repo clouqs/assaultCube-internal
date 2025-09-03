@@ -1,6 +1,5 @@
 #include "cubescript.h"
 #include "mem.h"
-
 #include <iostream>
 #include <cstring>
 #include <windows.h>

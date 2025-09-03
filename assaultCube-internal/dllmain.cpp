@@ -20,7 +20,7 @@
 
 
 //THINGS TO ADD:
-//- Aimbot
+//- Aimbot :)
 //- ESP boxes
 //Configs
 // weapon changer
