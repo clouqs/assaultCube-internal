@@ -34,6 +34,12 @@
     <Filter Include="features">
       <UniqueIdentifier>{47db9c08-361d-46eb-903d-4f97620ede6b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="features\speed">
+      <UniqueIdentifier>{944d5aec-0145-42cb-9f2c-ed6b622f73ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="features\cubescript injection">
+      <UniqueIdentifier>{d61ab166-5d38-47d7-8b2b-d35e9203726b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -116,8 +122,14 @@
     <ClCompile Include="imgui\imgui_impl_opengl2.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
+    <ClCompile Include="cubescript.h">
+      <Filter>features\cubescript injection</Filter>
+    </ClCompile>
+    <ClCompile Include="cubescript.cpp">
+      <Filter>features\cubescript injection</Filter>
+    </ClCompile>
     <ClCompile Include="Speed.h">
-      <Filter>features</Filter>
+      <Filter>features\speed</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

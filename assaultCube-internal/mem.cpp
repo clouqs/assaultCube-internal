@@ -47,3 +47,38 @@ uintptr_t mem::FindDMAAddy(uintptr_t ptr, std::vector<unsigned int> offsets)
 	}
 	return addr;
 }
+#include <windows.h>
+#include <psapi.h>
+#include <cstdint>
+
+uintptr_t FindPattern(const char* moduleName, const char* pattern, const char* mask)
+{
+    MODULEINFO mInfo{};
+    HMODULE hModule = GetModuleHandleA(moduleName);
+    if (!hModule) return 0;
+
+    GetModuleInformation(GetCurrentProcess(), hModule, &mInfo, sizeof(MODULEINFO));
+
+    uintptr_t base = reinterpret_cast<uintptr_t>(hModule);
+    size_t size = mInfo.SizeOfImage;
+
+    size_t patternLength = strlen(mask);
+
+    for (size_t i = 0; i < size - patternLength; i++)
+    {
+        bool found = true;
+        for (size_t j = 0; j < patternLength; j++)
+        {
+            if (mask[j] != '?' && pattern[j] != *(char*)(base + i + j))
+            {
+                found = false;
+                break;
+            }
+        }
+        if (found)
+        {
+            return base + i;
+        }
+    }
+    return 0;
+}

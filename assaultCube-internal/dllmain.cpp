@@ -1,4 +1,5 @@
-﻿#include "stdafx.h"
+﻿#include "cubescript.h"
+#include "stdafx.h"
 #include <iostream>
 #include <string>
 #include <cmath>
@@ -11,8 +12,24 @@
 #include "mem.h"
 #include "Speed.h"
 
+#include <chrono>
+#include <thread>
+
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "minhook.x32.lib")
+
+
+//THINGS TO ADD:
+//- Aimbot
+//- ESP boxes
+//Configs
+// weapon changer
+//menu style customization (color picker etc)
+//rapid fire
+//handle cubescript injection from own tab
+//custom name input field in cubescript tab
+
+
 
 // -------------------------------------
 // Entity structure
@@ -59,8 +76,8 @@ public:
 // Globals
 // -------------------------------------
 static HWND       g_GameWindow = nullptr;
-static uintptr_t  moduleBase = 0;
-static ent* localPlayer = nullptr;
+uintptr_t  moduleBase = 0;
+ent* localPlayer = nullptr;
 static BYTE localPlayer_check = 0;
 static bool       imguiInitialized = false;
 static std::string cachedName = "Loading...";
@@ -75,18 +92,23 @@ static bool bNoReload = false;
 static bool bNoClip = false;
 static bool bSpeed = false;
 static bool bHealed = false;
+static bool bSuicide = false;
+static bool bName = false;
 static float bFov = 90;
 
-//delete later:
+//Dummy Globals
 bool dummy = false;
 float dummyfloat;
 static float currentSpeed = 0.0f; // Added missing variable
 
 // Menu navigation
-static int currentSelection = 0;
-static const int MainCheatSelections = 7;
-static const int ESPSelections = 2;
+
 static int currentTab = 0;
+static int currentSelection = 0;
+static const int MainCheatSelections = 9;  //Main tab has 8 options
+static const int VisualsSelections = 1;   //Visuals tab has 1 option (Apply FOV)
+static const int ESPSelections = 2;      //ESP tab has 2 options
+static const int AimbotSelections = 2;  //Aimbot tab has 2 options
 
 // OpenGL hooks
 using wglSwapBuffersFn = BOOL(WINAPI*)(HDC);
@@ -95,6 +117,38 @@ static wglSwapBuffersFn owglSwapBuffers = nullptr;
 // ImGui Win32 WndProc
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 static WNDPROC oWndProc = nullptr;
+
+
+
+static void DrawMenuOption(int idx, const char* label, bool* toggle = nullptr, float* slider = nullptr) {
+    bool isSelected = (currentSelection == idx);
+
+    if (isSelected) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.f, 1.f, 0.f, 1.f));
+    }
+
+    if (toggle) {
+        ImGui::Text("%s %s %s",
+            isSelected ? ">" : " ",
+            label,
+            *toggle ? "[ON]" : "[OFF]");
+    }
+    else if (slider) {
+        ImGui::Text("%s %s: %.1f",
+            isSelected ? ">" : " ",
+            label,
+            *slider);
+    }
+    else {
+        ImGui::Text("%s %s",
+            isSelected ? ">" : " ",
+            label);
+    }
+
+    if (isSelected) {
+        ImGui::PopStyleColor();
+    }
+}
 
 // -------------------------------------
 // WndProc
@@ -117,10 +171,10 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             {
                 int maxSelections = 0;
                 switch (currentTab) {
-                case 0: maxSelections = MainCheatSelections; break;  // Main: 7 options
-                case 1: maxSelections = 1; break;                    // Visuals: 1 option (Apply FOV)
-                case 2: maxSelections = 2; break;                    // ESP: 2 checkboxes
-                case 3: maxSelections = 2; break;                    // Aimbot: 2 options
+                case 0: maxSelections = MainCheatSelections; break;       // Main: 9 options
+                case 1: maxSelections = VisualsSelections; break;        // Visuals: 1 option (Apply FOV)
+                case 2: maxSelections = ESPSelections; break;           // ESP: 2 checkboxes
+                case 3: maxSelections = AimbotSelections; break;       // Aimbot: 2 options
                 }
                 if (maxSelections > 0) {
                     currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
@@ -134,9 +188,9 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 int maxSelections = 0;
                 switch (currentTab) {
                 case 0: maxSelections = MainCheatSelections; break;
-                case 1: maxSelections = 1; break;
-                case 2: maxSelections = 2; break;
-                case 3: maxSelections = 2; break;
+                case 1: maxSelections = VisualsSelections; break;
+                case 2: maxSelections = ESPSelections; break;
+                case 3: maxSelections = AimbotSelections; break;
                 }
                 if (maxSelections > 0) {
                     currentSelection = (currentSelection + 1) % maxSelections;
@@ -179,6 +233,14 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     case 6:
                         bHealed = true;
                         std::cout << "[WndProc Toggle] Heal Player activated\n";
+                        break;
+					case 7:
+						bSuicide = true;
+						std::cout << "[WndProc Toggle] Player suicided \n";
+                        break;
+                    case 8:
+                        bName = true;
+						std::cout << "[WndProc Toggle] Set Player Name to teeeeeest \n";
                         break;
                     }
                     break;
@@ -293,34 +355,34 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         imguiInitialized = true;
         std::cout << "[Init] ImGui initialized and WndProc hooked (wglSwapBuffers)\n";
     }
-////get game pointers: 
+            //get game pointers: 
     localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
 	localPlayer_check = *(BYTE*)((uintptr_t)localPlayer + 0x104);
     
     float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
     float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
     float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
+    char* namePtr = (char*)(localPlayer)+0x205;
 
     if (localPlayer && localPlayer_check == 1)
     {
-        // Try to cache the name if not already retrieved
-        if (!nameRetrieved)
-        {
-            // Method 2: Try offset 0x205 if struct field failed
-            char* namePtr = (char*)(localPlayer)+0x205;
-            if (namePtr && namePtr[0] != '\0' && isprint((unsigned char)namePtr[0])) //Checks the first character isn't a null terminator (empty string)
-            {
-                size_t len = 0;
-                while (len < 19 && namePtr[len] != '\0' && isprint((unsigned char)namePtr[len])) {
-                    ++len;
-                }
-                if (len > 0) {
-                    cachedName.assign(namePtr, len);
-                    nameRetrieved = true;
-                    std::cout << "[Cache] Player name retrieved from offset 0x205: " << cachedName << "\n";
-                }
-            }
-        }
+        //// Try to cache the name if not already retrieved
+        //if (!nameRetrieved)
+        //{
+        //    // Method 2: Try offset 0x205 if struct field failed
+        //    if (namePtr && namePtr[0] != '\0' && isprint((unsigned char)namePtr[0])) //Checks the first character isn't a null terminator (empty string)
+        //    {
+        //        size_t len = 0;
+        //        while (len < 19 && namePtr[len] != '\0' && isprint((unsigned char)namePtr[len])) {
+        //            ++len;
+        //        }
+        //        if (len > 0) {
+        //            cachedName.assign(namePtr, len);
+        //            nameRetrieved = true;
+        //            std::cout << "[Cache] Player name retrieved from offset 0x205: " << cachedName << "\n";
+        //        }
+        //    }
+        //}
 
         if (bHealth)
         {
@@ -371,9 +433,6 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         }
         else if (!bSpeed && localPlayer)
         {
-            float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
-            float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
-
             if (velocity_x && velocity_y)
             {
                 float speed = sqrtf(*velocity_x * *velocity_x + *velocity_y * *velocity_y);
@@ -393,6 +452,20 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
             localPlayer->armor_quantity = 100;
             bHealed = false;
         }
+
+        if (bSuicide)
+        {
+            ExecuteSuicide();  // Use the new function from cubescript.cpp
+            bSuicide = false;
+        }
+
+        if (bName && localPlayer)
+        {
+            ChangeName();
+            bName = false;
+        }
+        
+
     }
 
     glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -401,157 +474,102 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
     ImGui_ImplOpenGL2_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
-    if (showMenu)
-    {
+    if (showMenu) {
         ImGui::SetNextWindowPos(ImVec2(10.f, 10.f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(420.f, 320.f), ImGuiCond_Once);
+        ImGui::SetNextWindowSize(ImVec2(480.f, 365.f), ImGuiCond_Once);
 
-        ImGui::Begin("Majorana - clouqs", &showMenu, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+        ImGui::Begin("Majorana - clouqs", &showMenu,
+            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.70f, 0.34f, 1.f, 1.f)); // purple
         ImGui::Text("Press INSERT to toggle this menu");
-        ImGui::Text("Use UP/DOWN arrows to navigate, ENTER to select, TAB to switch tabs");
+        ImGui::Text("Use arrows to navigate, ENTER to select, TAB to switch tabs");
+        ImGui::PopStyleColor();
         ImGui::Separator();
 
-        if (ImGui::BeginTabBar("Tabs"))
-        {
-            if (ImGui::BeginTabItem("Main", nullptr, currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0))
-            {
-                auto drawOptionMain = [&](int idx, const char* label, bool enabled, bool isAction = false) {
-                    if (currentSelection == idx) {
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Highlight
-                        if (isAction) {
-                            ImGui::Text("> %s", label); // just show the action
-                        }
-                        else {
-                            ImGui::Text("> %s: %s", label, enabled ? "[ON]" : "[OFF]");
-                        }
-                        ImGui::PopStyleColor();
-                    }
-                    else {
-                        if (isAction) {
-                            ImGui::Text("  %s", label);
-                        }
-                        else {
-                            ImGui::Text("  %s: %s", label, enabled ? "[ON]" : "[OFF]");
-                        }
-                    }
-                    };
+        if (ImGui::BeginTabBar("Tabs")) {
+            // ---------------- MAIN TAB ----------------
+            if (ImGui::BeginTabItem("Main", nullptr,
+                currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
-                drawOptionMain(0, "God Mode", bHealth);
-                drawOptionMain(1, "Infinite Ammo", bAmmo);
-                drawOptionMain(2, "No Recoil", bRecoil);
-                drawOptionMain(3, "No Reload", bNoReload);
-                drawOptionMain(4, "No Clip", bNoClip);
-                drawOptionMain(5, "Speed Hack", bSpeed);
-				drawOptionMain(6, "Heal Player",false, true);
-
-                ImGui::Spacing();
+                DrawMenuOption(0, "God Mode", &bHealth);
+                DrawMenuOption(1, "Infinite Ammo", &bAmmo);
+                DrawMenuOption(2, "No Recoil", &bRecoil);
+                DrawMenuOption(3, "No Reload", &bNoReload);
+                DrawMenuOption(4, "No Clip", &bNoClip);
+                DrawMenuOption(5, "Speed Hack", &bSpeed);
+                DrawMenuOption(6, "Heal Player"); // action only
+                DrawMenuOption(7, "Kill Yourself");// action only
+				DrawMenuOption(8, "Set Player Name to maxyboo"); // action only - change name to custom inputfield 
                 ImGui::Separator();
 
-                if (localPlayer)
-                {
-                    ImGui::Text("HP: %d  | Armor: %d", localPlayer->player_health, localPlayer->armor_quantity);
+                if (localPlayer) {
+                    ImGui::Text("HP: %d  | Armor: %d",
+                        localPlayer->player_health,
+                        localPlayer->armor_quantity);
+
                     ImGui::Spacing();
+                    ImGui::TextColored(ImVec4(1.f, 0.5f, 0.f, 1.f),
+                        "Position  -  X: %.1f, Y: %.1f, Z: %.1f",
+                        localPlayer->X, localPlayer->Y, localPlayer->Z);
 
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f)); // Orange
-                    ImGui::Text("Position  -  X: %.1f, Y: %.1f, Z: %.1f", localPlayer->X, localPlayer->Y, localPlayer->Z);
-                    ImGui::PopStyleColor();
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.65f, 0.95f, 0.2f, 0.8f)); // Lime - i colori della sicilia :)
-                    ImGui::Text("Head angles  -  Yaw: %.2f, Pitch: %.2f", localPlayer->lookleft_right, localPlayer->lookup_down);
+                    ImGui::TextColored(ImVec4(0.65f, 0.95f, 0.2f, 1.f),
+                        "Head angles  -  Yaw: %.2f, Pitch: %.2f",
+                        localPlayer->lookleft_right,
+                        localPlayer->lookup_down);
 
-                    ImGui::PopStyleColor();
                     ImGui::Spacing();
                     ImGui::Text("Speed: %.1f", currentSpeed);
-                    ImGui::Text("Name: %s", cachedName.c_str());
+                    ImGui::Text("Name: %s", namePtr);
                     ImGui::Text("Kills: %d", localPlayer->number_of_kills);
-                    ImGui::NewLine();
                 }
 
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Visuals", nullptr, currentTab == 1 ? ImGuiTabItemFlags_SetSelected : 0))
-            {
-                auto drawOptionVisuals = [&](int idx, const char* label, bool isAction = false) {
-                    if (currentTab == 1 && currentSelection == idx) {
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Highlight
-                        if (isAction) {
-                            ImGui::Text("> %s: %.1f (LEFT/RIGHT to adjust, ENTER to apply)", label, bFov);
-                        }
-                        ImGui::PopStyleColor();
-                    }
-                    else {
-                        if (isAction) {
-                            ImGui::Text("  %s: %.1f", label, bFov);
-                        }
-                    }
-                    };
+            // ---------------- VISUALS TAB ----------------
+            if (ImGui::BeginTabItem("Visuals", nullptr,
+                currentTab == 1 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
                 ImGui::SliderFloat("Change Fov", &bFov, 60.0f, 170.0f);
 
-                // Show current game FOV if available
-                if (moduleBase != 0) {
-                    float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
-                    if (fovPtr) {
-                        ImGui::Text("Current Game FOV: %.1f", *fovPtr);
-                    }
+                float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
+                if (fovPtr) {
+                    ImGui::Text("Current Game FOV: %.1f", *fovPtr);
                 }
 
-                drawOptionVisuals(0, "Apply FOV", true);
-                ImGui::Text("Tip: Use LEFT/RIGHT arrows to adjust, ENTER to apply to game");
+                DrawMenuOption(0, "Apply", nullptr, &bFov);
+
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("ESP", nullptr, currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0))
-            {
-                auto drawOptionESP = [&](int idx, const char* label, bool enabled) {
-                    if (currentTab == 2 && currentSelection == idx) {
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Highlight
-                        ImGui::Text("> %s: %s", label, enabled ? "[ON]" : "[OFF]");
-                        ImGui::PopStyleColor();
-                    }
-                    else {
-                        ImGui::Text("  %s: %s", label, enabled ? "[ON]" : "[OFF]");
-                    }
-                    };
+            // ---------------- ESP TAB ----------------
+            if (ImGui::BeginTabItem("ESP", nullptr,
+                currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
                 ImGui::Text("ESP features coming soon...");
-                drawOptionESP(0, "Enable ESP", dummy);
-                drawOptionESP(1, "Draw Boxes", dummy); // You'll need a separate bool for this
+                DrawMenuOption(0, "Enable ESP", &dummy);
+                DrawMenuOption(1, "Draw Boxes", &dummy);
+
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Aimbot", nullptr, currentTab == 3 ? ImGuiTabItemFlags_SetSelected : 0))
-            {
-                auto drawOptionAimbot = [&](int idx, const char* label, bool enabled, bool isSlider = false) {
-                    if (currentTab == 3 && currentSelection == idx) {
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f)); // Highlight
-                        if (isSlider) {
-                            ImGui::Text("> %s: %.1f (Use LEFT/RIGHT arrows)", label, dummyfloat);
-                        }
-                        else {
-                            ImGui::Text("> %s: %s", label, enabled ? "[ON]" : "[OFF]");
-                        }
-                        ImGui::PopStyleColor();
-                    }
-                    else {
-                        if (isSlider) {
-                            ImGui::Text("  %s: %.1f", label, dummyfloat);
-                        }
-                        else {
-                            ImGui::Text("  %s: %s", label, enabled ? "[ON]" : "[OFF]");
-                        }
-                    }
-                    };
+            // ---------------- AIMBOT TAB ----------------
+            if (ImGui::BeginTabItem("Aimbot", nullptr,
+                currentTab == 3 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
                 ImGui::Text("Aimbot features coming soon...");
-                drawOptionAimbot(0, "Enable Aimbot", dummy);
-                drawOptionAimbot(1, "FOV", false, true);
+                DrawMenuOption(0, "Enable Aimbot", &dummy);
+                DrawMenuOption(1, "FOV", nullptr, &dummyfloat);
+
                 ImGui::SliderFloat("FOV", &dummyfloat, 1.0f, 180.0f);
+
                 ImGui::EndTabItem();
             }
 
             ImGui::EndTabBar();
         }
+
         ImGui::End();
     }
 
@@ -592,13 +610,23 @@ static bool HookOpenGL()
 static DWORD WINAPI HackThread(HMODULE hModule)
 {
     moduleBase = (uintptr_t)GetModuleHandleW(L"ac_client.exe");
-    //allocconsole can be removed. add log page to menu instead.
+
+    if (!moduleBase) {
+        std::cout << "[ERROR] Could not find ac_client.exe module!\n";
+        FreeLibraryAndExitThread(hModule, 0);
+        return 0;
+    }
+
     AllocConsole();
     FILE* f = nullptr;
     freopen_s(&f, "CONOUT$", "w", stdout);
-    std::cout << "AssaultCube Internal Hack Loaded (OpenGL Version)\n";
+    std::cout << "Module Base: 0x" << std::hex << moduleBase << std::dec << "\n";
 
-    while (!GetModuleHandleA("opengl32.dll")) Sleep(100);
+    // Wait for OpenGL
+    while (!GetModuleHandleA("opengl32.dll")) {
+        std::cout << "[Wait] Waiting for OpenGL...\n";
+        Sleep(1000);
+    }
 
     if (!HookOpenGL())
     {
@@ -609,14 +637,32 @@ static DWORD WINAPI HackThread(HMODULE hModule)
         return 0;
     }
 
-    std::cout << "OpenGL hooks installed. Press INSERT to toggle menu, UP/DOWN to navigate, ENTER to select, END to exit.\n";
+    // Wait for game initialization
+    std::cout << "[Wait] Waiting for game initialization (10 seconds)...\n";
+    Sleep(10000);
 
+    // Initialize CubeScript 
+    if (InitializeCubeScript()) {
+        std::cout << "[CubeScript] Initialization successful\n";
+
+        // Optional: Test commands after a delay
+        /*Sleep(5000);
+        std::cout << "[CubeScript] Starting command tests...\n";
+        TestCubeScriptCommands();*/
+
+    }
+    else {
+        std::cout << "[CubeScript] Initialization failed\n";
+    }
+
+    // Main loop
     while (true)
     {
         if (GetAsyncKeyState(VK_END) & 1) break;
         Sleep(16);
     }
 
+    // Cleanup
     if (imguiInitialized)
     {
         if (g_GameWindow && oWndProc)
@@ -636,6 +682,7 @@ static DWORD WINAPI HackThread(HMODULE hModule)
     FreeLibraryAndExitThread(hModule, 0);
     return 0;
 }
+
 
 // -------------------------------------
 // DllMain
