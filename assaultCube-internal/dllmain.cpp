@@ -4,6 +4,7 @@
 #include <string>
 #include <cmath>
 #include <windows.h>
+#include <algorithm>
 #include <gl/GL.h>
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_win32.h"
@@ -75,11 +76,22 @@ public:
 // -------------------------------------
 // Globals
 // -------------------------------------
-static HWND       g_GameWindow = nullptr;
-uintptr_t  moduleBase = 0;
+static HWND g_GameWindow = nullptr;
+uintptr_t moduleBase = 0;
 ent* localPlayer = nullptr;
+float* fovPtr = nullptr;
+float* velocity_x = nullptr;
+float* velocity_y = nullptr;
+char* namePtr = nullptr;
+int64_t* bRapidFirePtr = nullptr;
+//float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
+//float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
+//float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
+//char* namePtr = (char*)(localPlayer)+0x205;
+//float* bRapidFirePtr = (float*)((uintptr_t)localPlayer + 0x164);
+
 static BYTE localPlayer_check = 0;
-static bool       imguiInitialized = false;
+static bool imguiInitialized = false;
 static std::string cachedName = "Loading...";
 static bool nameRetrieved = false;
 static char setName[32] = "Dummy";
@@ -94,6 +106,8 @@ static bool bSpeed = false;
 static bool bHealed = false;
 static bool bSuicide = false;
 static bool bName = false;
+static bool bRapidFireEnabled = false;  // Toggle for rapid fire on/off
+static int64_t bRapidFire = 60;
 static float bFov = 90;
 
 //Dummy Globals
@@ -105,7 +119,7 @@ static float currentSpeed = 0.0f; // Added missing variable
 
 static int currentTab = 0;
 static int currentSelection = 0;
-static const int MainCheatSelections = 9;  //Main tab has 8 options
+static const int MainCheatSelections = 10;  //Main tab has 8 options
 static const int VisualsSelections = 1;   //Visuals tab has 1 option (Apply FOV)
 static const int ESPSelections = 2;      //ESP tab has 2 options
 static const int AimbotSelections = 2;  //Aimbot tab has 2 options
@@ -171,15 +185,14 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             {
                 int maxSelections = 0;
                 switch (currentTab) {
-                case 0: maxSelections = MainCheatSelections; break;       // Main: 9 options
-                case 1: maxSelections = VisualsSelections; break;        // Visuals: 1 option (Apply FOV)
-                case 2: maxSelections = ESPSelections; break;           // ESP: 2 checkboxes
-                case 3: maxSelections = AimbotSelections; break;       // Aimbot: 2 options
+                case 0: maxSelections = MainCheatSelections; break;
+                case 1: maxSelections = VisualsSelections; break;
+                case 2: maxSelections = ESPSelections; break;
+                case 3: maxSelections = AimbotSelections; break;
                 }
                 if (maxSelections > 0) {
                     currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
                 }
-                std::cout << "[WndProc Navigation] Tab: " << currentTab << " Selection: " << currentSelection << "\n";
             }
             return 0;
 
@@ -195,128 +208,68 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 if (maxSelections > 0) {
                     currentSelection = (currentSelection + 1) % maxSelections;
                 }
-                std::cout << "[WndProc Navigation] Tab: " << currentTab << " Selection: " << currentSelection << "\n";
             }
             return 0;
 
             case VK_RETURN:
-                // Handle actions based on current tab
                 switch (currentTab)
                 {
                 case 0: // Main tab
                     switch (currentSelection)
                     {
-                    case 0:
-                        bHealth = !bHealth;
-                        std::cout << "[WndProc Toggle] God Mode: " << bHealth << "\n";
-                        break;
-                    case 1:
-                        bAmmo = !bAmmo;
-                        std::cout << "[WndProc Toggle] Infinite Ammo: " << bAmmo << "\n";
-                        break;
-                    case 2:
-                        bRecoil = !bRecoil;
-                        std::cout << "[WndProc Toggle] No Recoil: " << bRecoil << "\n";
-                        break;
-                    case 3:
-                        bNoReload = !bNoReload;
-                        std::cout << "[WndProc Toggle] No Reload: " << bNoReload << "\n";
-                        break;
-                    case 4:
-                        bNoClip = !bNoClip;
-                        std::cout << "[WndProc Toggle] NoClip: " << bNoClip << "\n";
-                        break;
-                    case 5:
-                        bSpeed = !bSpeed;
-                        std::cout << "[WndProc Toggle] Speed Hack: " << bSpeed << "\n";
-                        break;
-                    case 6:
-                        bHealed = true;
-                        std::cout << "[WndProc Toggle] Heal Player activated\n";
-                        break;
-					case 7:
-						bSuicide = true;
-						std::cout << "[WndProc Toggle] Player suicided \n";
-                        break;
-                    case 8:
-                        bName = true;
-						std::cout << "[WndProc Toggle] Set Player Name to teeeeeest \n";
+                    case 0: bHealth = !bHealth; break;
+                    case 1: bAmmo = !bAmmo; break;
+                    case 2: bRecoil = !bRecoil; break;
+                    case 3: bNoReload = !bNoReload; break;
+                    case 4: bNoClip = !bNoClip; break;
+                    case 5: bSpeed = !bSpeed; break;
+                    case 6: bHealed = true; break;
+                    case 7: bSuicide = true; break;
+                    case 8: bName = true; break;                                                    // Rapid Fire toggle
+                    case 9: bRapidFireEnabled = !bRapidFireEnabled;
+                        std::cout << "[WndProc Toggle] Rapid Fire: " << bRapidFireEnabled << "\n";  
                         break;
                     }
                     break;
 
                 case 1: // Visuals tab
-                    switch (currentSelection)
-                    {
-                    case 0:
-                        // Apply current FOV value to game
-                        if (moduleBase != 0) {
-                            float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
-                            if (fovPtr) {
-                                *fovPtr = bFov;
-                                std::cout << "[WndProc] FOV applied: " << bFov << "\n";
-                            }
+                    if (currentSelection == 0) {
+                        // Apply FOV
+                        if (fovPtr && moduleBase != 0) {
+                            *fovPtr = bFov;
+                            std::cout << "[WndProc] FOV applied: " << bFov << "\n";
                         }
-                        break;
                     }
                     break;
+                }
+                return 0;
 
-                case 2: // ESP tab
-                    switch (currentSelection)
-                    {
-                    case 0:
-                        dummy = !dummy; // Toggle ESP enable (placeholder)
-                        std::cout << "[WndProc Toggle] ESP Enable: " << dummy << "\n";
-                        break;
-                    case 1:
-                        // Toggle Draw Boxes (you'll need another bool for this)
-                        std::cout << "[WndProc Toggle] Draw Boxes toggled\n";
-                        break;
-                    }
-                    break;
+            case VK_LEFT:
+                if (currentTab == 0 && currentSelection == 9) { // Rapid fire adjustment
+                    bRapidFire = max(30LL, bRapidFire - 5LL);
+                    std::cout << "[WndProc] RapidFire decreased to: " << bRapidFire << "\n";
+                }
+                else if (currentTab == 1 && currentSelection == 0) { // FOV adjustment
+                    bFov = max(60.0f, bFov - 5.0f);
+                    std::cout << "[WndProc] FOV decreased to: " << bFov << "\n";
+                }
+                return 0;
 
-                case 3: // Aimbot tab
-                    switch (currentSelection)
-                    {
-                    case 0:
-                        dummy = !dummy; // Toggle Aimbot enable (placeholder)
-                        std::cout << "[WndProc Toggle] Aimbot Enable: " << dummy << "\n";
-                        break;
-                    case 1:
-                        // FOV adjustment could be handled here or with left/right arrows
-                        std::cout << "[WndProc] Aimbot FOV option selected\n";
-                        break;
-                    }
-                    break;
+            case VK_RIGHT:
+                if (currentTab == 0 && currentSelection == 9) { // Rapid fire adjustment
+                    bRapidFire = max(30LL, bRapidFire + 5LL);
+                    std::cout << "[WndProc] RapidFire increased to: " << bRapidFire << "\n";
+                }
+                else if (currentTab == 1 && currentSelection == 0) { // FOV adjustment
+                    bFov = min(170.0f, bFov + 5.0f);
+                    std::cout << "[WndProc] FOV increased to: " << bFov << "\n";
                 }
                 return 0;
 
             case VK_TAB:
                 currentTab = (currentTab + 1) % 4;
-                currentSelection = 0; // Reset selection when changing tabs
+                currentSelection = 0;
                 std::cout << "[WndProc Navigation] Changed to tab: " << currentTab << "\n";
-                return 0;
-
-            case VK_LEFT: // Add left/right for adjusting values
-                if (currentTab == 1 && currentSelection == 0) { // FOV adjustment
-                    bFov = max(60.0f, bFov - 5.0f);
-                    std::cout << "[WndProc] FOV decreased to: " << bFov << "\n";
-                }
-                else if (currentTab == 3 && currentSelection == 1) { // Aimbot FOV
-                    dummyfloat = max(1.0f, dummyfloat - 10.0f);
-                    std::cout << "[WndProc] Aimbot FOV decreased to: " << dummyfloat << "\n";
-                }
-                return 0;
-
-            case VK_RIGHT:
-                if (currentTab == 1 && currentSelection == 0) { // FOV adjustment
-                    bFov = min(170.0f, bFov + 5.0f);
-                    std::cout << "[WndProc] FOV increased to: " << bFov << "\n";
-                }
-                else if (currentTab == 3 && currentSelection == 1) { // Aimbot FOV
-                    dummyfloat = min(180.0f, dummyfloat + 10.0f);
-                    std::cout << "[WndProc] Aimbot FOV increased to: " << dummyfloat << "\n";
-                }
                 return 0;
             }
         }
@@ -355,35 +308,38 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         imguiInitialized = true;
         std::cout << "[Init] ImGui initialized and WndProc hooked (wglSwapBuffers)\n";
     }
-            //get game pointers: 
+
+    // Get localplayer pointers
     localPlayer = *(ent**)(moduleBase + 0x0017E0A8);
-	localPlayer_check = *(BYTE*)((uintptr_t)localPlayer + 0x104);
-    
-    float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
-    float* velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
-    float* velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
-    char* namePtr = (char*)(localPlayer)+0x205;
+
+    if (localPlayer)
+    {
+        localPlayer_check = *(BYTE*)((uintptr_t)localPlayer + 0x104);
+
+        // Initialize pointers safely when localPlayer is valid
+        if (!fovPtr && moduleBase != 0) {
+            fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
+        }
+
+        if (!velocity_x) {
+            velocity_x = (float*)((uintptr_t)localPlayer + 0x10);
+        }
+
+        if (!velocity_y) {
+            velocity_y = (float*)((uintptr_t)localPlayer + 0x14);
+        }
+
+        if (!namePtr) {
+            namePtr = (char*)((uintptr_t)localPlayer + 0x205);
+        }
+
+        if (!bRapidFirePtr) {
+            bRapidFirePtr = (int64_t*)((uintptr_t)localPlayer + 0x164);
+        }
+    }
 
     if (localPlayer && localPlayer_check == 1)
     {
-        //// Try to cache the name if not already retrieved
-        //if (!nameRetrieved)
-        //{
-        //    // Method 2: Try offset 0x205 if struct field failed
-        //    if (namePtr && namePtr[0] != '\0' && isprint((unsigned char)namePtr[0])) //Checks the first character isn't a null terminator (empty string)
-        //    {
-        //        size_t len = 0;
-        //        while (len < 19 && namePtr[len] != '\0' && isprint((unsigned char)namePtr[len])) {
-        //            ++len;
-        //        }
-        //        if (len > 0) {
-        //            cachedName.assign(namePtr, len);
-        //            nameRetrieved = true;
-        //            std::cout << "[Cache] Player name retrieved from offset 0x205: " << cachedName << "\n";
-        //        }
-        //    }
-        //}
-
         if (bHealth)
         {
             localPlayer->player_health = 1000;
@@ -404,6 +360,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
             mem::Nop((BYTE*)(moduleBase + 0xC2EC3), 5);
         else
             mem::Patch((BYTE*)(moduleBase + 0xC2EC3), (BYTE*)"\xF3\x0F\x11\x56\x38", 5);
+
         if (bNoClip)
         {
             *(DWORD*)((char*)localPlayer + 0x76) = 00000004;
@@ -412,13 +369,13 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         {
             *(DWORD*)((char*)localPlayer + 0x76) = 00000000;
         }
+
         if (bSpeed && localPlayer)
         {
-            static float speedMultiplier = 3.0f; // speed multiplier
+            static float speedMultiplier = 3.0f;
 
             if (velocity_x && velocity_y)
             {
-                // Calculate direction based on view angles
                 float forwardX, forwardY;
                 float yaw = localPlayer->lookleft_right;
                 CalculateDirection(yaw, forwardX, forwardY);
@@ -427,7 +384,6 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 *velocity_x = forwardX * speedMultiplier;
                 *velocity_y = forwardY * speedMultiplier;
 
-                // Calculate current speed for display
                 currentSpeed = sqrtf(*velocity_x * *velocity_x + *velocity_y * *velocity_y);
             }
         }
@@ -438,7 +394,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 float speed = sqrtf(*velocity_x * *velocity_x + *velocity_y * *velocity_y);
                 currentSpeed = speed;
 
-                if (speed > 10.0f) // Threshold for normal movement (potentially useless without silder [to add])
+                if (speed > 10.0f)
                 {
                     *velocity_x = 0.0f;
                     *velocity_y = 0.0f;
@@ -446,6 +402,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 }
             }
         }
+
         if (bHealed && localPlayer)
         {
             localPlayer->player_health = 100;
@@ -455,7 +412,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
 
         if (bSuicide)
         {
-            ExecuteSuicide();  // Use the new function from cubescript.cpp
+            ExecuteSuicide();
             bSuicide = false;
         }
 
@@ -464,8 +421,18 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
             ChangeName();
             bName = false;
         }
-        
 
+        if (bRapidFireEnabled && bRapidFirePtr)
+        {
+            // Validate pointer before writing
+            if (!IsBadWritePtr(bRapidFirePtr, sizeof(int64_t))) {
+                *bRapidFirePtr = bRapidFire;
+            }
+            else {
+                std::cout << "[WARNING] Invalid rapid fire pointer detected\n";
+                bRapidFirePtr = nullptr;
+            }
+        }
     }
 
     glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -474,6 +441,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
     ImGui_ImplOpenGL2_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+
     if (showMenu) {
         ImGui::SetNextWindowPos(ImVec2(10.f, 10.f), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(480.f, 365.f), ImGuiCond_Once);
@@ -481,14 +449,14 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
         ImGui::Begin("Majorana - clouqs", &showMenu,
             ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
 
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.70f, 0.34f, 1.f, 1.f)); // purple
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.70f, 0.34f, 1.f, 1.f));
         ImGui::Text("Press INSERT to toggle this menu");
         ImGui::Text("Use arrows to navigate, ENTER to select, TAB to switch tabs");
         ImGui::PopStyleColor();
         ImGui::Separator();
 
         if (ImGui::BeginTabBar("Tabs")) {
-            // ---------------- MAIN TAB ----------------
+            // MAIN TAB
             if (ImGui::BeginTabItem("Main", nullptr,
                 currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
@@ -498,9 +466,22 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 DrawMenuOption(3, "No Reload", &bNoReload);
                 DrawMenuOption(4, "No Clip", &bNoClip);
                 DrawMenuOption(5, "Speed Hack", &bSpeed);
-                DrawMenuOption(6, "Heal Player"); // action only
-                DrawMenuOption(7, "Kill Yourself");// action only
-				DrawMenuOption(8, "Set Player Name to maxyboo"); // action only - change name to custom inputfield 
+                DrawMenuOption(6, "Heal Player"); //action only
+                DrawMenuOption(7, "Kill Yourself");//action only
+                DrawMenuOption(8, "Set Player Name to maxyboo");//action only
+                DrawMenuOption(9, "Rapid Fire", &bRapidFireEnabled);  
+
+                ImGui::Separator();
+                ImGui::SliderInt("Fire Rate(ms) - lower = shoot faster", (int*)&bRapidFire, 30, 120);  // Correct label
+
+                // FIXED: Show correct information
+                if (bRapidFirePtr && localPlayer) {
+                    ImGui::Text("Current Fire Rate: %d", *bRapidFirePtr);
+                }
+                else {
+                    ImGui::Text("Fire Rate: %.1f (Not Applied)", bRapidFire);
+                }
+
                 ImGui::Separator();
 
                 if (localPlayer) {
@@ -520,20 +501,21 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
 
                     ImGui::Spacing();
                     ImGui::Text("Speed: %.1f", currentSpeed);
-                    ImGui::Text("Name: %s", namePtr);
+                    if (namePtr) {
+                        ImGui::Text("Name: %s", namePtr);
+                    }
                     ImGui::Text("Kills: %d", localPlayer->number_of_kills);
                 }
 
                 ImGui::EndTabItem();
             }
 
-            // ---------------- VISUALS TAB ----------------
+            // VISUALS TAB
             if (ImGui::BeginTabItem("Visuals", nullptr,
                 currentTab == 1 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
                 ImGui::SliderFloat("Change Fov", &bFov, 60.0f, 170.0f);
 
-                float* fovPtr = (float*)((uintptr_t)moduleBase + 0x18A7CC);
                 if (fovPtr) {
                     ImGui::Text("Current Game FOV: %.1f", *fovPtr);
                 }
@@ -543,7 +525,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 ImGui::EndTabItem();
             }
 
-            // ---------------- ESP TAB ----------------
+            // ESP TAB
             if (ImGui::BeginTabItem("ESP", nullptr,
                 currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
@@ -554,7 +536,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 ImGui::EndTabItem();
             }
 
-            // ---------------- AIMBOT TAB ----------------
+            // AIMBOT TAB
             if (ImGui::BeginTabItem("Aimbot", nullptr,
                 currentTab == 3 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
