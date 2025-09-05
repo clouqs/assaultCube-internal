@@ -468,7 +468,10 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 DrawMenuOption(5, "Speed Hack", &bSpeed);
                 DrawMenuOption(6, "Heal Player"); //action only
                 DrawMenuOption(7, "Kill Yourself");//action only
+                ImGui::Separator();
                 DrawMenuOption(8, "Set Player Name to maxyboo");//action only
+                //ImGui::InputText("Set name", )
+                ImGui::Separator();
                 DrawMenuOption(9, "Rapid Fire", &bRapidFireEnabled);  
 
                 ImGui::Separator();
