@@ -85,7 +85,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d3d9.lib;minhook.x32.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Users\bulli\Desktop\Majorana\vcpkg\installed\x86-windows\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>"C:\Users\bulli\Desktop\Majorana\vcpkg\installed\x86-windows\lib"; "C:\Users\bulli\Desktop\cheat misc\minhook\vcpkg\installed\x86-windows\lib"</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
