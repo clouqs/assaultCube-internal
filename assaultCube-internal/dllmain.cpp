@@ -477,7 +477,7 @@ static BOOL WINAPI hkwglSwapBuffers(HDC hdc)
                 ImGui::Separator();
                 ImGui::SliderInt("Fire Rate(ms) - lower = shoot faster", (int*)&bRapidFire, 30, 120);  // Correct label
 
-                // FIXED: Show correct information
+                // Show correct information
                 if (bRapidFirePtr && localPlayer) {
                     ImGui::Text("Current Fire Rate: %d", *bRapidFirePtr);
                 }
