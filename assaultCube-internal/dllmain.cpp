@@ -225,10 +225,8 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     case 5: bSpeed = !bSpeed; break;
                     case 6: bHealed = true; break;
                     case 7: bSuicide = true; break;
-                    case 8: bName = true; break;                                                    // Rapid Fire toggle
-                    case 9: bRapidFireEnabled = !bRapidFireEnabled;
-                        std::cout << "[WndProc Toggle] Rapid Fire: " << bRapidFireEnabled << "\n";  
-                        break;
+                    case 8: bName = true; break;
+                    case 9: bRapidFireEnabled = !bRapidFireEnabled; break;
                     }
                     break;
 
