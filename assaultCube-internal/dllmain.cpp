@@ -119,7 +119,7 @@ static float currentSpeed = 0.0f; // Added missing variable
 
 static int currentTab = 0;
 static int currentSelection = 0;
-static const int MainCheatSelections = 10;  //Main tab has 8 options
+static const int MainCheatSelections = 10;  //Main tab has 9 options
 static const int VisualsSelections = 1;   //Visuals tab has 1 option (Apply FOV)
 static const int ESPSelections = 2;      //ESP tab has 2 options
 static const int AimbotSelections = 2;  //Aimbot tab has 2 options
