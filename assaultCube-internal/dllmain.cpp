@@ -113,7 +113,7 @@ static float bFov = 90;
 //Dummy Globals
 bool dummy = false;
 float dummyfloat;
-static float currentSpeed = 0.0f; // Added missing variable
+static float currentSpeed = 0.0f;
 
 // Menu navigation
 
