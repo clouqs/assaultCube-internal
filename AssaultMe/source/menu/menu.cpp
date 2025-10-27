@@ -1,0 +1,343 @@
+#include "menu.h"
+#include "../core/globals.h"
+#include "../../external/imgui/imgui.h"
+#include "../../external/imgui/imgui_internal.h"
+#include "../features/cubescript.h"
+#include "../core/memory.h"
+#include "../features/speed.h"
+#include "../features/logic.h"
+#include <iostream>
+
+//speed hack needs better implementation later.
+//implement aimbot and esp later.
+//fix when menu is open game can't receive input.
+//add custom name input box.
+
+
+bool Menu::bHealth = false;
+bool Menu::bAmmo = false;
+bool Menu::bRecoil = false;
+bool Menu::bNoReload = false;
+bool Menu::bNoClip = false;
+bool Menu::bSpeed = false;
+bool Menu::bHealed = false;
+bool Menu::bSuicide = false;
+bool Menu::bName = false;
+bool Menu::bRapidFireEnabled = false;
+int64_t Menu::bRapidFire = 60;
+float Menu::bFov = 90.0f;
+
+
+Menu& Menu::Get()
+{
+    static Menu instance;
+    return instance;
+}
+
+void Menu::Initialize(HWND window)
+{
+    // Initialization handled by main ImGui setup
+}
+
+void Menu::Render()
+{
+    if (!showMenu) return;
+
+    // IMPORTANT: Allow game to receive input even when menu is open
+    ImGuiIO& io = ImGui::GetIO();
+    io.WantCaptureKeyboard = false;  // Let game receive keyboard input
+    io.WantCaptureMouse = false;     // Let game receive mouse input
+
+    // SYNC MENU STATE WITH CHEATMANAGER
+    auto& cheatMgr = CheatManager::Get();
+    bHealth = cheatMgr.godMode;
+    bAmmo = cheatMgr.infiniteAmmo;
+    bRecoil = cheatMgr.noRecoil;
+    bNoReload = cheatMgr.noReload;
+    bNoClip = cheatMgr.noClip;
+    bSpeed = cheatMgr.speedHack;
+    bRapidFireEnabled = cheatMgr.rapidFire;
+    bRapidFire = cheatMgr.rapidFireValue;
+    bFov = cheatMgr.fovValue;
+
+    ImGui::SetNextWindowPos(ImVec2(10.f, 10.f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(480.f, 365.f), ImGuiCond_Once);
+
+    ImGui::Begin("Majorana - clouqs", &showMenu,
+        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.70f, 0.34f, 1.f, 1.f));
+    ImGui::Text("Press INSERT to toggle this menu");
+    ImGui::Text("Use arrows to navigate, ENTER to select, TAB to switch tabs");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+
+    if (ImGui::BeginTabBar("Tabs")) {
+        RenderMainTab();
+        RenderVisualsTab();
+        RenderESPTab();
+        RenderAimbotTab();
+        ImGui::EndTabBar();
+    }
+
+    ImGui::End();
+}
+
+void Menu::RenderMainTab()
+{
+    if (ImGui::BeginTabItem("Main", nullptr, currentTab == 0 ? ImGuiTabItemFlags_SetSelected : 0)) {
+
+        DrawMenuOption(0, "God Mode", &bHealth);
+        DrawMenuOption(1, "Infinite Ammo", &bAmmo);
+        DrawMenuOption(2, "No Recoil", &bRecoil);
+        DrawMenuOption(3, "No Reload", &bNoReload);
+        DrawMenuOption(4, "No Clip", &bNoClip);
+        DrawMenuOption(5, "Speed Hack", &bSpeed);
+        DrawMenuOption(6, "Heal Player");
+        DrawMenuOption(7, "Kill Yourself");
+        ImGui::Separator();
+        DrawMenuOption(8, "Set Player Name to maxyboo"); //need to add chatbox for custom input.
+        ImGui::Separator();
+        DrawMenuOption(9, "Assault rifle Rapid Fire", &bRapidFireEnabled);
+
+        ImGui::Separator();
+        ImGui::SliderInt("Fire Rate(ms) - lower = shoot faster", (int*)&bRapidFire, 30, 120);
+
+        if (bRapidFirePtr && localPlayer) {
+            ImGui::Text("Current Fire Rate: %d", *bRapidFirePtr);
+        }
+        else {
+            ImGui::Text("Fire Rate: %.1f (Not Applied)", bRapidFire);
+        }
+
+        ImGui::Separator();
+
+        if (localPlayer) {
+            ImGui::Text("HP: %d  | Armor: %d",
+                localPlayer->player_health,
+                localPlayer->armor_quantity);
+
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(1.f, 0.5f, 0.f, 1.f),
+                "Position  -  X: %.1f, Y: %.1f, Z: %.1f",
+                localPlayer->X, localPlayer->Y, localPlayer->Z);
+
+            ImGui::TextColored(ImVec4(0.65f, 0.95f, 0.2f, 1.f),
+                "Head angles  -  Yaw: %.2f, Pitch: %.2f",
+                localPlayer->lookleft_right,
+                localPlayer->lookup_down);
+
+            ImGui::Spacing();
+            ImGui::Text("Speed: %.1f", CheatManager::Get().currentSpeed);
+            if (namePtr) {
+                ImGui::Text("Name: %s", namePtr);
+            }
+            ImGui::Text("Kills: %d", localPlayer->number_of_kills);
+        }
+
+        ImGui::EndTabItem();
+    }
+}
+
+void Menu::RenderVisualsTab()
+{
+    if (ImGui::BeginTabItem("Visuals", nullptr, currentTab == 1 ? ImGuiTabItemFlags_SetSelected : 0)) {
+
+        ImGui::SliderFloat("Change Fov", &bFov, 60.0f, 170.0f);
+
+        if (fovPtr) {
+            ImGui::Text("Current Game FOV: %.1f", *fovPtr);
+        }
+        ImGui::EndTabItem();
+    }
+}
+
+void Menu::RenderESPTab()
+{
+    if (ImGui::BeginTabItem("ESP", nullptr, currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0)) {
+
+        ImGui::Text("ESP features coming soon...");
+        DrawMenuOption(0, "Enable ESP", &dummy);
+        DrawMenuOption(1, "Draw Boxes", &dummy);
+
+        ImGui::EndTabItem();
+    }
+}
+
+void Menu::RenderAimbotTab()
+{
+    if (ImGui::BeginTabItem("Aimbot", nullptr, currentTab == 3 ? ImGuiTabItemFlags_SetSelected : 0)) {
+
+        ImGui::Text("Aimbot features coming soon...");
+        DrawMenuOption(0, "Enable Aimbot", &dummy);
+        DrawMenuOption(1, "FOV", nullptr, &dummyfloat);
+
+        ImGui::SliderFloat("FOV", &dummyfloat, 1.0f, 180.0f);
+
+        ImGui::EndTabItem();
+    }
+}
+
+void Menu::DrawMenuOption(int idx, const char* label, bool* toggle, float* slider)
+{
+    bool isSelected = (currentSelection == idx);
+
+    if (isSelected) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.f, 1.f, 0.f, 1.f));
+    }
+
+    if (toggle) {
+        ImGui::Text("%s %s %s",
+            isSelected ? ">" : " ",
+            label,
+            *toggle ? "[ON]" : "[OFF]");
+    }
+    else if (slider) {
+        ImGui::Text("%s %s: %.1f",
+            isSelected ? ">" : " ",
+            label,
+            *slider);
+    }
+    else {
+        ImGui::Text("%s %s",
+            isSelected ? ">" : " ",
+            label);
+    }
+
+    if (isSelected) {
+        ImGui::PopStyleColor();
+    }
+}
+
+void Menu::HandleKeyInput(WPARAM key)
+{
+    if (!showMenu) return;
+
+    auto& cheatMgr = CheatManager::Get();
+
+    switch (key) {
+    case VK_UP:
+    {
+        int maxSelections = 0;
+        switch (currentTab) {
+        case 0: maxSelections = MainCheatSelections; break;
+        case 1: maxSelections = VisualsSelections; break;
+        case 2: maxSelections = ESPSelections; break;
+        case 3: maxSelections = AimbotSelections; break;
+        }
+        if (maxSelections > 0) {
+            currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
+        }
+        break;
+    }
+
+    case VK_DOWN:
+    {
+        int maxSelections = 0;
+        switch (currentTab) {
+        case 0: maxSelections = MainCheatSelections; break;
+        case 1: maxSelections = VisualsSelections; break;
+        case 2: maxSelections = ESPSelections; break;
+        case 3: maxSelections = AimbotSelections; break;
+        }
+        if (maxSelections > 0) {
+            currentSelection = (currentSelection + 1) % maxSelections;
+        }
+        break;
+    }
+
+    case VK_RETURN:
+        switch (currentTab) {
+        case 0: // Main tab
+            switch (currentSelection) {
+            case 0:
+                cheatMgr.godMode = !cheatMgr.godMode;
+                std::cout << "[Menu] God Mode: " << (cheatMgr.godMode ? "ON" : "OFF") << "\n";
+                break;
+            case 1:
+                cheatMgr.infiniteAmmo = !cheatMgr.infiniteAmmo;
+                std::cout << "[Menu] Infinite Ammo: " << (cheatMgr.infiniteAmmo ? "ON" : "OFF") << "\n";
+                break;
+            case 2:
+                cheatMgr.noRecoil = !cheatMgr.noRecoil;
+                std::cout << "[Menu] No Recoil: " << (cheatMgr.noRecoil ? "ON" : "OFF") << "\n";
+                break;
+            case 3:
+                cheatMgr.noReload = !cheatMgr.noReload;
+                std::cout << "[Menu] No Reload: " << (cheatMgr.noReload ? "ON" : "OFF") << "\n";
+                break;
+            case 4:
+                cheatMgr.noClip = !cheatMgr.noClip;
+                std::cout << "[Menu] No Clip: " << (cheatMgr.noClip ? "ON" : "OFF") << "\n";
+                break;
+            case 5:
+                cheatMgr.speedHack = !cheatMgr.speedHack;
+                std::cout << "[Menu] Speed Hack: " << (cheatMgr.speedHack ? "ON" : "OFF") << "\n";
+                break;
+            case 6:
+                cheatMgr.doHeal = true;
+                std::cout << "[Menu] Healing player...\n";
+                break;
+            case 7:
+                cheatMgr.doSuicide = true;
+                std::cout << "[Menu] Suicide triggered...\n";
+                break;
+            case 8:
+                cheatMgr.doChangeName = true;
+                std::cout << "[Menu] Changing name...\n";
+                break;
+            case 9:
+                cheatMgr.rapidFire = !cheatMgr.rapidFire;
+                std::cout << "[Menu] Rapid Fire: " << (cheatMgr.rapidFire ? "ON" : "OFF") << "\n";
+                break;
+            }
+            break;
+
+        case 1: // Visuals tab
+            if (currentSelection == 0) {
+                // Apply FOV through CheatManager
+                cheatMgr.fovValue = bFov;
+                std::cout << "[Menu] FOV set to: " << bFov << " (will be applied by CheatManager)\n";
+            }
+            break;
+        }
+        break;
+
+    case VK_LEFT:
+        if (currentTab == 0 && currentSelection == 9) {
+            bRapidFire = max(30LL, bRapidFire - 5LL);
+            cheatMgr.rapidFireValue = bRapidFire;
+            std::cout << "[Menu] RapidFire decreased to: " << bRapidFire << "\n";
+        }
+        else if (currentTab == 1 && currentSelection == 0) {
+            bFov = max(60.0f, bFov - 5.0f);
+            cheatMgr.fovValue = bFov;
+            std::cout << "[Menu] FOV decreased to: " << bFov << "\n";
+        }
+        break;
+
+    case VK_RIGHT:
+        if (currentTab == 0 && currentSelection == 9) {
+            bRapidFire = min(120LL, bRapidFire + 5LL);
+            cheatMgr.rapidFireValue = bRapidFire;
+            std::cout << "[Menu] RapidFire increased to: " << bRapidFire << "\n";
+        }
+        else if (currentTab == 1 && currentSelection == 0) {
+            bFov = min(170.0f, bFov + 5.0f);
+            cheatMgr.fovValue = bFov;
+            std::cout << "[Menu] FOV increased to: " << bFov << "\n";
+        }
+        break;
+
+    case VK_TAB:
+        currentTab = (currentTab + 1) % 4;
+        currentSelection = 0;
+        std::cout << "[Menu Navigation] Changed to tab: " << currentTab << "\n";
+        break;
+    }
+}
+
+void Menu::Shutdown()
+{
+    // Cleanup if needed
+}
