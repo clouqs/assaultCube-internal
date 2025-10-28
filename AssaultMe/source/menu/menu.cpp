@@ -1,11 +1,14 @@
 #include "menu.h"
 #include "../core/globals.h"
+#include "../game/GameState.h"
+#include "../game/EntityList.h"
 #include "../../external/imgui/imgui.h"
 #include "../../external/imgui/imgui_internal.h"
 #include "../features/cubescript.h"
 #include "../core/memory.h"
 #include "../features/speed.h"
 #include "../features/logic.h"
+#include "../features/DistanceCalc.h"
 #include <iostream>
 
 //speed hack needs better implementation later.
@@ -41,7 +44,7 @@ void Menu::Initialize(HWND window)
 
 void Menu::Render()
 {
-    if (!showMenu) return;
+    if (!showMenu) { return; }
 
     // IMPORTANT: Allow game to receive input even when menu is open
     ImGuiIO& io = ImGui::GetIO();
@@ -77,6 +80,7 @@ void Menu::Render()
         RenderVisualsTab();
         RenderESPTab();
         RenderAimbotTab();
+        RenderEntitiesTab();
         ImGui::EndTabBar();
     }
 
@@ -178,6 +182,85 @@ void Menu::RenderAimbotTab()
     }
 }
 
+void Menu::RenderEntitiesTab()
+{
+    if (ImGui::BeginTabItem("Entities", nullptr, currentTab == 4 ? ImGuiTabItemFlags_SetSelected : 0)) {
+
+        ImGui::Text("Entity List:");
+        ImGui::Separator();
+
+        auto& gameState = GameState::Get();
+        EntityList_t* entityList = gameState.GetEntityList();
+        Entity* localPlayer = gameState.GetLocalPlayer();
+
+        if (!entityList) {
+            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "EntityList not initialized!");
+            ImGui::EndTabItem();
+            return;
+        }
+
+        int found = 0;
+        for (int i = 0; i < 32; i++) {
+            Entity* entity = entityList->entities[i];
+
+            if (!entity) continue;
+
+            // Skip the local player
+            if (entity == localPlayer) continue;
+
+            found++;
+
+            ImGui::PushID(i);
+
+            // Color code based on health status
+            if (entity->is_dead) {
+                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.f), "[%d] Entity at index %d [DEAD]", found, i);
+            }
+            else {
+                ImGui::Text("[%d] Entity at index %d", found, i);
+            }
+
+            // Display name
+            if (entity->name[0] != '\0') {
+                ImGui::Text("  Name: %s", entity->name);
+            }
+            else {
+                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.f), "  Name: <unnamed>");
+            }
+
+            // Color code health
+            ImVec4 healthColor = entity->player_health > 50 ? ImVec4(0.f, 1.f, 0.f, 1.f) :
+                entity->player_health > 25 ? ImVec4(1.f, 1.f, 0.f, 1.f) :
+                ImVec4(1.f, 0.f, 0.f, 1.f);
+
+            ImGui::TextColored(healthColor, "  HP: %d | Armor: %d",
+                entity->player_health,
+                entity->armor_quantity);
+
+            ImGui::Text("  Position: X:%.1f Y:%.1f Z:%.1f",
+                entity->X, entity->Y, entity->Z);
+
+            float distance = CalculateDistance(localPlayer, entity);
+            ImGui::Text("  Distance: %.1f units", distance);
+
+            // Additional info
+            ImGui::Text("  Kills: %d", entity->number_of_kills);
+
+            ImGui::Separator();
+            ImGui::PopID();
+        }
+
+        if (found == 0) {
+            ImGui::TextColored(ImVec4(1.f, 1.f, 0.f, 1.f), "No other entities found");
+        }
+        else {
+            ImGui::TextColored(ImVec4(0.f, 1.f, 0.f, 1.f), "Total entities found: %d", found);
+        }
+
+        ImGui::EndTabItem();
+    }
+}
+
 void Menu::DrawMenuOption(int idx, const char* label, bool* toggle, float* slider)
 {
     bool isSelected = (currentSelection == idx);
@@ -209,9 +292,11 @@ void Menu::DrawMenuOption(int idx, const char* label, bool* toggle, float* slide
     }
 }
 
+//HandleKeyInput function
 void Menu::HandleKeyInput(WPARAM key)
 {
-    if (!showMenu) return;
+    if (!showMenu)
+        return;
 
     auto& cheatMgr = CheatManager::Get();
 
@@ -330,7 +415,7 @@ void Menu::HandleKeyInput(WPARAM key)
         break;
 
     case VK_TAB:
-        currentTab = (currentTab + 1) % 4;
+        currentTab = (currentTab + 1) % 5;
         currentSelection = 0;
         std::cout << "[Menu Navigation] Changed to tab: " << currentTab << "\n";
         break;

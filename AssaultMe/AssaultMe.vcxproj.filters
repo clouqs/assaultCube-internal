@@ -116,5 +116,11 @@
     <ClInclude Include="external\minhook\MinHook.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
+    <ClInclude Include="source\features\DistanceCalc.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="source\game\EntityList.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

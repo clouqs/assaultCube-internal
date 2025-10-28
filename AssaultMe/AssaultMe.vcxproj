@@ -174,9 +174,11 @@
     <ClInclude Include="source\core\hooks.h" />
     <ClInclude Include="source\core\memory.h" />
     <ClInclude Include="source\features\cubescript.h" />
+    <ClInclude Include="source\features\DistanceCalc.h" />
     <ClInclude Include="source\features\logic.h" />
     <ClInclude Include="source\features\speed.h" />
     <ClInclude Include="source\game\Entity.h" />
+    <ClInclude Include="source\game\EntityList.h" />
     <ClInclude Include="source\game\GameState.h" />
     <ClInclude Include="source\game\Offsets.h" />
     <ClInclude Include="source\menu\menu.h" />

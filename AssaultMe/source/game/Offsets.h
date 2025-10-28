@@ -3,6 +3,7 @@
 
 namespace Offsets {
     constexpr uintptr_t LocalPlayer = 0x0017E0A8;
+	constexpr uintptr_t EntityList = 0x18AC04;
     constexpr uintptr_t FOV = 0x18A7CC;
     constexpr uintptr_t VelocityX = 0x10;
     constexpr uintptr_t VelocityY = 0x14;

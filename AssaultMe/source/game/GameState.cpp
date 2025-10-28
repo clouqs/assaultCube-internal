@@ -16,6 +16,11 @@ void GameState::Update() {
 
     localPlayer = *(Entity**)(moduleBase + Offsets::LocalPlayer);
 
+    // Initialize EntityList (only needs to be done once)
+    if (!entityList) {
+        entityList = (EntityList_t*)(moduleBase + Offsets::EntityList);
+    }
+
     if (localPlayer) {
         if (!fovPtr) fovPtr = (float*)(moduleBase + Offsets::FOV);
         if (!velocityX) velocityX = (float*)((uintptr_t)localPlayer + Offsets::VelocityX);

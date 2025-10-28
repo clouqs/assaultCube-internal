@@ -15,7 +15,7 @@ public:
 
     void HandleKeyInput(WPARAM key);
 
-    // menu vars (SOLO DICHIARAZIONE QUI)
+    // menu vars
     static bool bHealth;
     static bool bAmmo;
     static bool bRecoil;
@@ -36,6 +36,7 @@ private:
     void RenderVisualsTab();
     void RenderESPTab();
     void RenderAimbotTab();
+	void RenderEntitiesTab();
 
     void DrawMenuOption(int idx, const char* label, bool* toggle = nullptr, float* slider = nullptr);
 

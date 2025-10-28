@@ -34,6 +34,6 @@ private:
     void UpdateNoClip();
     void UpdateSpeedHack();
     void UpdateRapidFire();
-    void UpdateFOV();  // ADD THIS
+    void UpdateFOV();
     void UpdateActions();
 };
