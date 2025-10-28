@@ -121,15 +121,6 @@ void CheatManager::UpdateRapidFire() {
             std::cout << "[CheatManager] RapidFire pointer is invalid!\n";
         }
     }
-    else {
-        // Reset to default when disabled (optional)
-        if (!IsBadWritePtr(rapidFirePtr, sizeof(int64_t))) {
-            if (*rapidFirePtr != 60) {
-                *rapidFirePtr = 60;  // Reset to default
-                std::cout << "[CheatManager] RapidFire reset to default\n";
-            }
-        }
-    }
 }
 
 void CheatManager::UpdateFOV() {

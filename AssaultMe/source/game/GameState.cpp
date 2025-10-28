@@ -16,9 +16,20 @@ void GameState::Update() {
 
     localPlayer = *(Entity**)(moduleBase + Offsets::LocalPlayer);
 
-    // Initialize EntityList (only needs to be done once)
-    if (!entityList) {
-        entityList = (EntityList_t*)(moduleBase + Offsets::EntityList);
+    // EntityList: [[ac_client.exe + 0x18AC04] + 0] -> structure with entities at +4
+    // ALWAYS update entityList, not just when it's null
+    __try {
+        uintptr_t* firstLevelPtr = (uintptr_t*)(moduleBase + Offsets::EntityList);
+        if (firstLevelPtr && *firstLevelPtr != 0) {
+            uintptr_t secondLevelPtr = *firstLevelPtr;
+            entityList = (EntityList_t*)secondLevelPtr;  // Now points to the actual array
+        }
+        else {
+            entityList = nullptr;
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        entityList = nullptr;
     }
 
     if (localPlayer) {

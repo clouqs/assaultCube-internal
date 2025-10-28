@@ -184,78 +184,104 @@ void Menu::RenderAimbotTab()
 
 void Menu::RenderEntitiesTab()
 {
+    static bool hasErrored = false;
+
     if (ImGui::BeginTabItem("Entities", nullptr, currentTab == 4 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
-        ImGui::Text("Entity List:");
-        ImGui::Separator();
-
-        auto& gameState = GameState::Get();
-        EntityList_t* entityList = gameState.GetEntityList();
-        Entity* localPlayer = gameState.GetLocalPlayer();
-
-        if (!entityList) {
-            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "EntityList not initialized!");
+        if (hasErrored) {
+            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "Entity tab crashed - disabled for safety");
+            if (ImGui::Button("Reset Error Flag")) {
+                hasErrored = false;
+            }
             ImGui::EndTabItem();
             return;
         }
 
+        ImGui::TextColored(ImVec4(0.f, 1.f, 1.f, 1.f), "=== ENTITY LIST ===");
+        ImGui::Separator();
+
+        auto& gameState = GameState::Get();
+        uintptr_t moduleBase = 0;
+        Entity* localPlayer = nullptr;
+
+        __try {
+            moduleBase = gameState.GetModuleBase();
+            localPlayer = gameState.GetLocalPlayer();
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) {
+            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "CRASH: Cannot access game state!");
+            hasErrored = true;
+            ImGui::EndTabItem();
+            return;
+        }
+
+        if (moduleBase == 0) {
+            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "ERROR: Module base is NULL!");
+            ImGui::EndTabItem();
+            return;
+        }
+
+        ImGui::Text("Module Base: 0x%llX", (unsigned long long)moduleBase);
+        ImGui::Text("LocalPlayer: 0x%p", (void*)localPlayer);
+        ImGui::Separator();
+
+        // Read entity list pointer
+        uintptr_t entityListPtr = 0;
+        __try {
+            entityListPtr = *(uintptr_t*)(moduleBase + 0x18AC04);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) {
+            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "CRASH: Cannot read entity list pointer!");
+            hasErrored = true;
+            ImGui::EndTabItem();
+            return;
+        }
+
+        if (entityListPtr == 0) {
+            ImGui::TextColored(ImVec4(1.f, 1.f, 0.f, 1.f), "Entity list pointer is NULL");
+            ImGui::EndTabItem();
+            return;
+        }
+
+        ImGui::Text("Entity List Pointer: 0x%llX", (unsigned long long)entityListPtr);
+        ImGui::Separator();
+        ImGui::Text("Scanning pointers...");
+        ImGui::Separator();
+
+        // Just scan and print pointers, don't read anything from them
         int found = 0;
         for (int i = 0; i < 32; i++) {
-            Entity* entity = entityList->entities[i];
+            __try {
+                // Read 32-bit pointer (AssaultCube is 32-bit)
+                uintptr_t entityAddr = entityListPtr + 4 + (i * 4);
+                uint32_t entityPtr32 = *(uint32_t*)entityAddr;
+                Entity* entity = (Entity*)(uintptr_t)entityPtr32;
 
-            if (!entity) continue;
+                if (entity == nullptr) {
+                    continue;
+                }
 
-            // Skip the local player
-            if (entity == localPlayer) continue;
+                found++;
 
-            found++;
+                ImGui::Text("[%d] Pointer: 0x%p (read from 0x%llX)",
+                    i, (void*)entity, (unsigned long long)entityAddr);
 
-            ImGui::PushID(i);
-
-            // Color code based on health status
-            if (entity->is_dead) {
-                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.f), "[%d] Entity at index %d [DEAD]", found, i);
+                if (entity == localPlayer) {
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(0.f, 1.f, 1.f, 1.f), " <- LOCAL PLAYER");
+                }
             }
-            else {
-                ImGui::Text("[%d] Entity at index %d", found, i);
+            __except (EXCEPTION_EXECUTE_HANDLER) {
+                ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f),
+                    "[%d] CRASH reading pointer at offset 0x%llX",
+                    i, (unsigned long long)(entityListPtr + 4 + (i * 4)));
+                hasErrored = true;
+                break;
             }
-
-            // Display name
-            if (entity->name[0] != '\0') {
-                ImGui::Text("  Name: %s", entity->name);
-            }
-            else {
-                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.f), "  Name: <unnamed>");
-            }
-
-            // Color code health
-            ImVec4 healthColor = entity->player_health > 50 ? ImVec4(0.f, 1.f, 0.f, 1.f) :
-                entity->player_health > 25 ? ImVec4(1.f, 1.f, 0.f, 1.f) :
-                ImVec4(1.f, 0.f, 0.f, 1.f);
-
-            ImGui::TextColored(healthColor, "  HP: %d | Armor: %d",
-                entity->player_health,
-                entity->armor_quantity);
-
-            ImGui::Text("  Position: X:%.1f Y:%.1f Z:%.1f",
-                entity->X, entity->Y, entity->Z);
-
-            float distance = CalculateDistance(localPlayer, entity);
-            ImGui::Text("  Distance: %.1f units", distance);
-
-            // Additional info
-            ImGui::Text("  Kills: %d", entity->number_of_kills);
-
-            ImGui::Separator();
-            ImGui::PopID();
         }
 
-        if (found == 0) {
-            ImGui::TextColored(ImVec4(1.f, 1.f, 0.f, 1.f), "No other entities found");
-        }
-        else {
-            ImGui::TextColored(ImVec4(0.f, 1.f, 0.f, 1.f), "Total entities found: %d", found);
-        }
+        ImGui::Separator();
+        ImGui::TextColored(ImVec4(0.f, 1.f, 0.f, 1.f), "Total pointers found: %d", found);
 
         ImGui::EndTabItem();
     }
