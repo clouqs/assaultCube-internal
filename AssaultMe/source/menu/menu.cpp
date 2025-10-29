@@ -248,12 +248,12 @@ void Menu::RenderEntitiesTab()
         ImGui::Text("Reading entity data...");
         ImGui::Separator();
 
-        // Scan and read entity data
+        // Scan and read entity data (starting from 1)
         int found = 0;
-        for (int i = 0; i < 32; i++) {
+        for (int i = 1; i < 32; i++) {
             __try {
                 // Read 32-bit pointer (AssaultCube is 32-bit)
-                uintptr_t entityAddr = entityListPtr + 4 + (i * 4);
+                uintptr_t entityAddr = entityListPtr + (i * 4);
                 uint32_t entityPtr32 = *(uint32_t*)entityAddr;
                 Entity* entity = (Entity*)(uintptr_t)entityPtr32;
 
