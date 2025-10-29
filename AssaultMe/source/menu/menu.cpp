@@ -16,7 +16,6 @@
 //fix when menu is open game can't receive input.
 //add custom name input box.
 
-
 bool Menu::bHealth = false;
 bool Menu::bAmmo = false;
 bool Menu::bRecoil = false;
@@ -100,22 +99,28 @@ void Menu::RenderMainTab()
         DrawMenuOption(6, "Heal Player");
         DrawMenuOption(7, "Kill Yourself");
         ImGui::Separator();
-        DrawMenuOption(8, "Set Player Name to maxyboo"); //need to add chatbox for custom input.
+        DrawMenuOption(8, "Set Player Name to maxyboo");
         ImGui::Separator();
         DrawMenuOption(9, "Assault rifle Rapid Fire", &bRapidFireEnabled);
 
         ImGui::Separator();
         ImGui::SliderInt("Fire Rate(ms) - lower = shoot faster", (int*)&bRapidFire, 30, 120);
 
+        // Get pointers from GameState
+        auto& gameState = GameState::Get();
+        Entity* localPlayer = gameState.GetLocalPlayer();
+        int64_t* bRapidFirePtr = gameState.GetRapidFirePtr();
+
         if (bRapidFirePtr && localPlayer) {
-            ImGui::Text("Current Fire Rate: %d", *bRapidFirePtr);
+            ImGui::Text("Current Fire Rate: %lld", *bRapidFirePtr);
         }
         else {
-            ImGui::Text("Fire Rate: %.1f (Not Applied)", bRapidFire);
+            ImGui::Text("Fire Rate: %lld (Not Applied)", bRapidFire);
         }
 
         ImGui::Separator();
 
+        // Display player stats
         if (localPlayer) {
             ImGui::Text("HP: %d  | Armor: %d",
                 localPlayer->player_health,
@@ -133,10 +138,17 @@ void Menu::RenderMainTab()
 
             ImGui::Spacing();
             ImGui::Text("Speed: %.1f", CheatManager::Get().currentSpeed);
+
+            // Get name from GameState
+            char* namePtr = gameState.GetNamePtr();
             if (namePtr) {
                 ImGui::Text("Name: %s", namePtr);
             }
+
             ImGui::Text("Kills: %d", localPlayer->number_of_kills);
+        }
+        else {
+            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "Local player not found!");
         }
 
         ImGui::EndTabItem();
@@ -182,7 +194,7 @@ void Menu::RenderAimbotTab()
     }
 }
 
-void Menu::RenderEntitiesTab()
+void Menu::RenderEntitiesTab() // use ac_client.exe + 0x18AC0C for entity list size (localplayer counted)
 {
     static bool hasErrored = false;
 
@@ -201,19 +213,8 @@ void Menu::RenderEntitiesTab()
         ImGui::Separator();
 
         auto& gameState = GameState::Get();
-        uintptr_t moduleBase = 0;
-        Entity* localPlayer = nullptr;
-
-        __try {
-            moduleBase = gameState.GetModuleBase();
-            localPlayer = gameState.GetLocalPlayer();
-        }
-        __except (EXCEPTION_EXECUTE_HANDLER) {
-            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "CRASH: Cannot access game state!");
-            hasErrored = true;
-            ImGui::EndTabItem();
-            return;
-        }
+        uintptr_t moduleBase = gameState.GetModuleBase();
+        Entity* localPlayer = gameState.GetLocalPlayer();
 
         if (moduleBase == 0) {
             ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "ERROR: Module base is NULL!");
@@ -225,10 +226,14 @@ void Menu::RenderEntitiesTab()
         ImGui::Text("LocalPlayer: 0x%p", (void*)localPlayer);
         ImGui::Separator();
 
-        // Read entity list pointer carefully
+        // Read entity list pointer
         uintptr_t entityListPtr = 0;
         __try {
-            entityListPtr = *(uintptr_t*)(moduleBase + 0x18AC04);
+            // First dereference: get pointer from [moduleBase + offset]
+            uintptr_t* firstLevelPtr = (uintptr_t*)(moduleBase + 0x18AC04);
+            if (firstLevelPtr && *firstLevelPtr != 0) {
+                entityListPtr = *firstLevelPtr;
+            }
         }
         __except (EXCEPTION_EXECUTE_HANDLER) {
             ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "CRASH: Cannot read entity list pointer!");
@@ -248,11 +253,11 @@ void Menu::RenderEntitiesTab()
         ImGui::Text("Reading entity data...");
         ImGui::Separator();
 
-        // Scan and read entity data (starting from 1)
+        // Scan and read entity data (starting from index 1, slot 0 might be reserved)
         int found = 0;
         for (int i = 1; i < 32; i++) {
             __try {
-                // Read 32-bit pointer (AssaultCube is 32-bit)
+                // Read 32-bit pointer at [entityListPtr + (i * 4)]
                 uintptr_t entityAddr = entityListPtr + (i * 4);
                 uint32_t entityPtr32 = *(uint32_t*)entityAddr;
                 Entity* entity = (Entity*)(uintptr_t)entityPtr32;
@@ -261,7 +266,7 @@ void Menu::RenderEntitiesTab()
                     continue;
                 }
 
-                // Use IsBadReadPtr to check if memory is readable (Windows specific)
+                // Check if memory is readable
                 if (IsBadReadPtr(entity, sizeof(Entity))) {
                     ImGui::TextColored(ImVec4(1.f, 0.5f, 0.f, 1.f),
                         "[%d] Pointer 0x%p - INVALID (bad memory)", i, (void*)entity);
@@ -270,10 +275,9 @@ void Menu::RenderEntitiesTab()
 
                 found++;
 
-                // Try to read entity data
+                // Read entity data
                 bool isLocalPlayer = (entity == localPlayer);
 
-                // Read basic info
                 float x = entity->X;
                 float y = entity->Y;
                 float z = entity->Z;
@@ -282,10 +286,10 @@ void Menu::RenderEntitiesTab()
                 int32_t kills = entity->number_of_kills;
                 bool isDead = entity->is_dead;
 
-                // Try to read name safely
+                // Read name safely
                 char nameCopy[20] = { 0 };
                 memcpy(nameCopy, entity->name, 19);
-                nameCopy[19] = '\0'; // Ensure null termination
+                nameCopy[19] = '\0';
 
                 // Display entity info
                 ImGui::PushID(i);
@@ -301,18 +305,18 @@ void Menu::RenderEntitiesTab()
 
                 ImGui::Indent(20.0f);
 
-                ImGui::Text("Name: %s", nameCopy);
+                ImGui::Text("Name: %s",  nameCopy);
                 ImGui::Text("Health: %d | Armor: %d | Kills: %d", health, armor, kills);
                 ImGui::Text("Position: X=%.1f, Y=%.1f, Z=%.1f", x, y, z);
 
-                if (isDead) {
+                if (entity->player_health<=0) {
                     ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "Status: DEAD");
                 }
                 else {
                     ImGui::TextColored(ImVec4(0.f, 1.f, 0.f, 1.f), "Status: ALIVE");
                 }
 
-                // Calculate distance from local player if this isn't local player
+                // Calculate distance from local player
                 if (!isLocalPlayer && localPlayer) {
                     float dx = x - localPlayer->X;
                     float dy = y - localPlayer->Y;
@@ -329,8 +333,7 @@ void Menu::RenderEntitiesTab()
             }
             __except (EXCEPTION_EXECUTE_HANDLER) {
                 ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f),
-                    "[%d] CRASH reading entity data at 0x%llX",
-                    i, (unsigned long long)(entityListPtr + 4 + (i * 4)));
+                    "[%d] CRASH reading entity data", i);
                 hasErrored = true;
                 break;
             }
