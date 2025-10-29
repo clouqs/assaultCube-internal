@@ -1,0 +1,2 @@
+C:\Users\bulli\source\repos\clouqs\AssaultMe\build\intermediates\AssaultMe.vcxproj.Up2Date
+C:\Users\bulli\Downloads\assaultCube-internal-master\assaultCube-internal-master\build\intermediates\AssaultMe.vcxproj.Up2Date
