@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{4d7c7153-33ec-46fc-9a2b-5d2cfa7a9e2a}</ProjectGuid>
+    <ProjectGuid>{23C98485-9BA9-411E-B43F-76CBF8DE0AD9}</ProjectGuid>
     <RootNamespace>assaultCubeinternal</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
