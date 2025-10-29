@@ -11,10 +11,12 @@
 #include "../features/DistanceCalc.h"
 #include <iostream>
 
-//speed hack needs better implementation later.
 //implement aimbot and esp later.
-//fix when menu is open game can't receive input.
 //add custom name input box.
+//add debug tab with pointers info etc...
+//fix bots name not displaying correctly and their kill number.
+//clean entities tab from debug stuff.
+
 
 bool Menu::bHealth = false;
 bool Menu::bAmmo = false;
@@ -145,12 +147,12 @@ void Menu::RenderMainTab()
                 ImGui::Text("Name: %s", namePtr);
             }
 
-            ImGui::Text("Kills: %d", localPlayer->number_of_kills);
+            int32_t kills = *(int32_t*)((uintptr_t)localPlayer + 0x1DC);
+            ImGui::Text("Kills: %d", kills);
         }
         else {
             ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "Local player not found!");
         }
-
         ImGui::EndTabItem();
     }
 }
@@ -194,7 +196,7 @@ void Menu::RenderAimbotTab()
     }
 }
 
-void Menu::RenderEntitiesTab() // use ac_client.exe + 0x18AC0C for entity list size (localplayer counted)
+void Menu::RenderEntitiesTab()
 {
     static bool hasErrored = false;
 
@@ -249,13 +251,32 @@ void Menu::RenderEntitiesTab() // use ac_client.exe + 0x18AC0C for entity list s
         }
 
         ImGui::Text("Entity List Pointer: 0x%llX", (unsigned long long)entityListPtr);
+
+        // Read entity count from ac_client.exe + 0x18AC0C (Offsets::EntityCount)
+        int32_t entityCount = 0;
+        __try {
+            entityCount = *(int32_t*)(moduleBase + 0x18AC0C);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) {
+            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "CRASH: Cannot read entity count!");
+            hasErrored = true;
+            ImGui::EndTabItem();
+            return;
+        }
+
+        // Subtract 1 because count includes local player
+        int32_t otherPlayersCount = entityCount - 1;
+
+        ImGui::Separator();
+        ImGui::Text("Total Entities (including you): %d", entityCount);
+        ImGui::Text("Other Players: %d", otherPlayersCount);
         ImGui::Separator();
         ImGui::Text("Reading entity data...");
         ImGui::Separator();
 
-        // Scan and read entity data (starting from index 1, slot 0 might be reserved)
+        // Scan entity list - only iterate up to actual count
         int found = 0;
-        for (int i = 1; i < 32; i++) {
+        for (int i = 1; i <= otherPlayersCount && i < 32; i++) {
             __try {
                 // Read 32-bit pointer at [entityListPtr + (i * 4)]
                 uintptr_t entityAddr = entityListPtr + (i * 4);
@@ -284,7 +305,8 @@ void Menu::RenderEntitiesTab() // use ac_client.exe + 0x18AC0C for entity list s
                 int32_t health = entity->player_health;
                 int32_t armor = entity->armor_quantity;
                 int32_t kills = entity->number_of_kills;
-                bool isDead = entity->is_dead;
+                //bool isDead = entity->is_dead;
+
 
                 // Read name safely
                 char nameCopy[20] = { 0 };
@@ -294,22 +316,15 @@ void Menu::RenderEntitiesTab() // use ac_client.exe + 0x18AC0C for entity list s
                 // Display entity info
                 ImGui::PushID(i);
 
-                if (isLocalPlayer) {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.f, 1.f, 1.f, 1.f));
-                    ImGui::Text("[%d] === YOU === 0x%p", i, (void*)entity);
-                    ImGui::PopStyleColor();
-                }
-                else {
-                    ImGui::Text("[%d] Entity 0x%p", i, (void*)entity);
-                }
+                ImGui::Text("[%d] Entity 0x%p", i, (void*)entity);
 
                 ImGui::Indent(20.0f);
 
-                ImGui::Text("Name: %s",  nameCopy);
+                ImGui::Text("Name: %s", nameCopy);
                 ImGui::Text("Health: %d | Armor: %d | Kills: %d", health, armor, kills);
                 ImGui::Text("Position: X=%.1f, Y=%.1f, Z=%.1f", x, y, z);
 
-                if (entity->player_health<=0) {
+                if (health<=0) {
                     ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "Status: DEAD");
                 }
                 else {
@@ -318,11 +333,11 @@ void Menu::RenderEntitiesTab() // use ac_client.exe + 0x18AC0C for entity list s
 
                 // Calculate distance from local player
                 if (!isLocalPlayer && localPlayer) {
-                    float dx = x - localPlayer->X;
+                    /*float dx = x - localPlayer->X;
                     float dy = y - localPlayer->Y;
                     float dz = z - localPlayer->Z;
-                    float distance = sqrtf(dx * dx + dy * dy + dz * dz);
-                    ImGui::TextColored(ImVec4(1.f, 1.f, 0.f, 1.f), "Distance: %.1f units", distance);
+                    float distance = sqrtf(dx * dx + dy * dy + dz * dz);*/
+                    ImGui::TextColored(ImVec4(1.f, 1.f, 0.f, 1.f), "Distance: %.1f units", CalculateDistance(localPlayer, entity));
                 }
 
                 ImGui::Unindent(20.0f);
@@ -340,7 +355,7 @@ void Menu::RenderEntitiesTab() // use ac_client.exe + 0x18AC0C for entity list s
         }
 
         ImGui::Separator();
-        ImGui::TextColored(ImVec4(0.f, 1.f, 0.f, 1.f), "Total entities found: %d", found);
+        ImGui::TextColored(ImVec4(0.f, 1.f, 0.f, 1.f), "Total entities found: %d" " without local player", found);
 
         ImGui::EndTabItem();
     }

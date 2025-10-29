@@ -4,6 +4,7 @@
 namespace Offsets {
     constexpr uintptr_t LocalPlayer = 0x0017E0A8;
 	constexpr uintptr_t EntityList = 0x18AC04;
+    constexpr uintptr_t EntityCount = 0x18AC0C;
     constexpr uintptr_t FOV = 0x18A7CC;
     constexpr uintptr_t VelocityX = 0x10;
     constexpr uintptr_t VelocityY = 0x14;
@@ -16,4 +17,4 @@ namespace Offsets {
     constexpr uintptr_t InfiniteAmmoPatch = 0xC73EF;
     constexpr uintptr_t NoReloadPatch = 0xC8FC7;
     constexpr uintptr_t NoRecoilPatch = 0xC2EC3;
-}
+}   

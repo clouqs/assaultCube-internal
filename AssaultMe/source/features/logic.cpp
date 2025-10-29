@@ -1,4 +1,5 @@
 #include "logic.h"
+#include "Windows.h"
 #include "../game/GameState.h"
 #include "../game/Offsets.h"
 #include "../core/Memory.h"
@@ -80,7 +81,7 @@ void CheatManager::UpdateSpeedHack() {
 
     if (!player || !velX || !velY) return;
 
-    if (speedHack) {
+    if (speedHack && (GetAsyncKeyState(0x57) & 0x8000)) {
         static float speedMultiplier = 3.0f;
         float forwardX, forwardY;
         float yaw = player->lookleft_right;

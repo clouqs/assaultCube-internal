@@ -36,7 +36,7 @@ static bool bSpeed = false;
 static bool bHealed = false;
 static bool bSuicide = false;
 static bool bName = false;
-static bool bRapidFireEnabled = false;  // Toggle for rapid fire on/off
+static bool bRapidFireEnabled = false;
 static int64_t bRapidFire = 60;
 static float bFov = 90;
 

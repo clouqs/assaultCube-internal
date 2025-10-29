@@ -27,30 +27,41 @@ namespace {
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 
 // ============================================
-// WndProc Hook
+// WndProc Hook - FIXED VERSION
 // ============================================
 LRESULT WINAPI Hooks::WndProcHook(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     // Toggle menu with INSERT key
     if (msg == WM_KEYDOWN && wParam == VK_INSERT) {
         Menu::Get().Toggle();
         std::cout << "[WndProc] Menu toggled: " << Menu::Get().IsVisible() << "\n";
-        return 0;
+        return 0;  // Block INSERT from reaching game
     }
 
-    // Pass keyboard input to menu if it's visible
-    if (Menu::Get().IsVisible() && msg == WM_KEYDOWN) {
-        Menu::Get().HandleKeyInput(wParam);
-        return 0;
-    }
-
-    // Pass input to ImGui if menu is visible
-    if (Menu::Get().IsVisible() && imguiInitialized) {
-        if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
-            return 1;
+    // If menu is visible, handle menu navigation keys
+    if (Menu::Get().IsVisible()) {
+        // Only block menu-specific navigation keys
+        if (msg == WM_KEYDOWN) {
+            // Block these keys ONLY for menu navigation
+            if (wParam == VK_UP || wParam == VK_DOWN ||
+                wParam == VK_LEFT || wParam == VK_RIGHT ||
+                wParam == VK_RETURN || wParam == VK_TAB) {
+                Menu::Get().HandleKeyInput(wParam);
+                return 0;  // Block these from reaching game
+            }
         }
+
+        // Pass ALL other input to ImGui
+        if (imguiInitialized) {
+            if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
+                return 1;
+            }
+        }
+
+        // IMPORTANT: Let WASD, mouse, and other keys pass through to game
+        // Do NOT return here - fall through to CallWindowProcW
     }
 
-    // Call original window procedure
+    // Call original window procedure for all non-blocked input
     return CallWindowProcW(originalWndProc, hWnd, msg, wParam, lParam);
 }
 
