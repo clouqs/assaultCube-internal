@@ -225,7 +225,7 @@ void Menu::RenderEntitiesTab()
         ImGui::Text("LocalPlayer: 0x%p", (void*)localPlayer);
         ImGui::Separator();
 
-        // Read entity list pointer
+        // Read entity list pointer carefully
         uintptr_t entityListPtr = 0;
         __try {
             entityListPtr = *(uintptr_t*)(moduleBase + 0x18AC04);
