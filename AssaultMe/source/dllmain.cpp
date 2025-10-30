@@ -18,7 +18,6 @@ DWORD WINAPI MainThread(HMODULE hModule) {
         FreeLibraryAndExitThread(hModule, 0);
         return 0;
     }
-
     std::cout << "Module Base: 0x" << std::hex << moduleBase << std::dec << "\n";
 
     // Initialize game state
@@ -45,14 +44,13 @@ DWORD WINAPI MainThread(HMODULE hModule) {
         std::cout << "[CubeScript] Initialized\n";
     }
 
-    // Main 
+    // Main loop
     while (!(GetAsyncKeyState(VK_END) & 1)) {
         Sleep(16);
     }
 
     // Cleanup
     Hooks::Shutdown();
-
     if (f) fclose(f);
     FreeConsole();
     FreeLibraryAndExitThread(hModule, 0);

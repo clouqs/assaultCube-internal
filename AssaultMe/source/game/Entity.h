@@ -1,13 +1,14 @@
 #pragma once
 #include <cstdint>
+#include "../features/Vec3.h"
+
 
 class Entity {
 public:
     char   pad_0000[4];                    // 0x0000 - 0x0003: 4 bytes padding
-    float  X;                              // 0x0004 - 0x0007: X coordinate
-    float  Y;                              // 0x0008 - 0x000B: Y coordinate  
-    float  Z;                              // 0x000C - 0x000F: Z coordinate
-    char   pad_0010[36];                   // 0x0010 - 0x0033: 36 bytes padding
+    Vec3   HeadPos;                        // 0x0004 - 0x000F: Head position (X, Y, Z)
+    char   pad_0010[24];                   // 0x0010 - 0x0027: 24 bytes padding
+    Vec3   FeetPos;                        // 0x0028 - 0x0033: Feet/Body position (X, Y, Z)
     float  lookleft_right;                 // 0x0034 - 0x0037: Horizontal look direction
     float  lookup_down;                    // 0x0038 - 0x003B: Vertical look direction
     char   pad_003C[176];                  // 0x003C - 0x00EB: 176 bytes padding
@@ -32,9 +33,9 @@ public:
     int32_t number_of_kills;               // 0x01DC - 0x01DF: Number of kills
     char   pad_01E0[32];                   // 0x01E0 - 0x01FF: 32 bytes padding
     char   name[19];                       // 0x0200 - 0x0212: Player name (19 characters)
-    char   pad_0210[264];                  // 0x0213 - 0x0318: 264 bytes padding (note: overlaps with name)
-    bool   is_dead;                        // 0x0319 - 0x0319: Is dead flag
-    char   pad_0319[75];                   // 0x031A - 0x0366: 75 bytes padding
-    void* weapon_in_hand;                  // 0x0367 - 0x036E: Pointer to current weapon (8 bytes on 64-bit)
-    char   pad_0368[480];                  // 0x036F - 0x054E: 480 bytes padding
+    char   pad_0213[264];                  // 0x0213 - 0x031A: 264 bytes padding
+    bool   is_dead;                        // 0x031B - 0x031B: Is dead flag
+    char   pad_031C[75];                   // 0x031C - 0x0366: 75 bytes padding
+    void* weapon_in_hand;                  // 0x0367 - 0x036E: Pointer to current weapon
+    char   pad_036F[480];                  // 0x036F - 0x054E: 480 bytes padding
 };

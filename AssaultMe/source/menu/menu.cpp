@@ -9,14 +9,8 @@
 #include "../features/speed.h"
 #include "../features/logic.h"
 #include "../features/DistanceCalc.h"
+#include "../features/ESP.h"
 #include <iostream>
-
-//implement aimbot and esp later.
-//add custom name input box.
-//add debug tab with pointers info etc...
-//fix bots name not displaying correctly and their kill number.
-//clean entities tab from debug stuff.
-
 
 bool Menu::bHealth = false;
 bool Menu::bAmmo = false;
@@ -31,7 +25,6 @@ bool Menu::bRapidFireEnabled = false;
 int64_t Menu::bRapidFire = 60;
 float Menu::bFov = 90.0f;
 
-
 Menu& Menu::Get()
 {
     static Menu instance;
@@ -45,24 +38,13 @@ void Menu::Initialize(HWND window)
 
 void Menu::Render()
 {
-    if (!showMenu) { return; }
+    if (!showMenu) {
+        return;
+    }
 
-    // IMPORTANT: Allow game to receive input even when menu is open
     ImGuiIO& io = ImGui::GetIO();
-    io.WantCaptureKeyboard = false;  // Let game receive keyboard input
-    io.WantCaptureMouse = false;     // Let game receive mouse input
-
-    // SYNC MENU STATE WITH CHEATMANAGER
-    auto& cheatMgr = CheatManager::Get();
-    bHealth = cheatMgr.godMode;
-    bAmmo = cheatMgr.infiniteAmmo;
-    bRecoil = cheatMgr.noRecoil;
-    bNoReload = cheatMgr.noReload;
-    bNoClip = cheatMgr.noClip;
-    bSpeed = cheatMgr.speedHack;
-    bRapidFireEnabled = cheatMgr.rapidFire;
-    bRapidFire = cheatMgr.rapidFireValue;
-    bFov = cheatMgr.fovValue;
+    io.WantCaptureKeyboard = false;
+    io.WantCaptureMouse = false;
 
     ImGui::SetNextWindowPos(ImVec2(10.f, 10.f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(480.f, 365.f), ImGuiCond_Once);
@@ -71,7 +53,7 @@ void Menu::Render()
         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.70f, 0.34f, 1.f, 1.f));
-    ImGui::Text("Press INSERT to toggle this menu");
+    ImGui::Text("Press INSERT to toggle menu");
     ImGui::Text("Use arrows to navigate, ENTER to select, TAB to switch tabs");
     ImGui::PopStyleColor();
     ImGui::Separator();
@@ -106,9 +88,8 @@ void Menu::RenderMainTab()
         DrawMenuOption(9, "Assault rifle Rapid Fire", &bRapidFireEnabled);
 
         ImGui::Separator();
-        ImGui::SliderInt("Fire Rate(ms) - lower = shoot faster", (int*)&bRapidFire, 30, 120);
+        ImGui::SliderInt("Fire Rate(ms)", (int*)&bRapidFire, 30, 120);
 
-        // Get pointers from GameState
         auto& gameState = GameState::Get();
         Entity* localPlayer = gameState.GetLocalPlayer();
         int64_t* bRapidFirePtr = gameState.GetRapidFirePtr();
@@ -116,43 +97,33 @@ void Menu::RenderMainTab()
         if (bRapidFirePtr && localPlayer) {
             ImGui::Text("Current Fire Rate: %lld", *bRapidFirePtr);
         }
-        else {
-            ImGui::Text("Fire Rate: %lld (Not Applied)", bRapidFire);
-        }
 
         ImGui::Separator();
 
-        // Display player stats
         if (localPlayer) {
             ImGui::Text("HP: %d  | Armor: %d",
                 localPlayer->player_health,
                 localPlayer->armor_quantity);
 
-            ImGui::Spacing();
             ImGui::TextColored(ImVec4(1.f, 0.5f, 0.f, 1.f),
                 "Position  -  X: %.1f, Y: %.1f, Z: %.1f",
-                localPlayer->X, localPlayer->Y, localPlayer->Z);
+                localPlayer->FeetPos.x, localPlayer->FeetPos.y, localPlayer->FeetPos.z);
 
             ImGui::TextColored(ImVec4(0.65f, 0.95f, 0.2f, 1.f),
                 "Head angles  -  Yaw: %.2f, Pitch: %.2f",
                 localPlayer->lookleft_right,
                 localPlayer->lookup_down);
 
-            ImGui::Spacing();
             ImGui::Text("Speed: %.1f", CheatManager::Get().currentSpeed);
 
-            // Get name from GameState
             char* namePtr = gameState.GetNamePtr();
             if (namePtr) {
                 ImGui::Text("Name: %s", namePtr);
             }
 
-            int32_t kills = *(int32_t*)((uintptr_t)localPlayer + 0x1DC);
-            ImGui::Text("Kills: %d", kills);
+            ImGui::Text("Kills: %d", localPlayer->number_of_kills);
         }
-        else {
-            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "Local player not found!");
-        }
+
         ImGui::EndTabItem();
     }
 }
@@ -174,9 +145,33 @@ void Menu::RenderESPTab()
 {
     if (ImGui::BeginTabItem("ESP", nullptr, currentTab == 2 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
-        ImGui::Text("ESP features coming soon...");
-        DrawMenuOption(0, "Enable ESP", &dummy);
-        DrawMenuOption(1, "Draw Boxes", &dummy);
+        auto& esp = ESP::Get();
+
+        ImGui::TextColored(ImVec4(0.f, 1.f, 1.f, 1.f), "=== ESP SETTINGS ===");
+        ImGui::Separator();
+
+        DrawMenuOption(0, "Enable ESP", &esp.enabled);
+
+        if (esp.enabled) {
+            ImGui::Indent(20.0f);
+            DrawMenuOption(1, "Draw Boxes", &esp.drawBoxes);
+            DrawMenuOption(2, "Draw Lines", &esp.drawLines);
+            DrawMenuOption(3, "Draw Health Bars", &esp.drawHealth);
+            DrawMenuOption(4, "Draw Names", &esp.drawNames);
+            DrawMenuOption(5, "Draw Distance", &esp.drawDistance);
+            ImGui::Unindent(20.0f);
+        }
+
+        ImGui::Separator();
+        ImGui::SliderFloat("Max Distance", &esp.maxDistance, 100.0f, 1000.0f);
+
+        ImGui::Separator();
+        float enemyColor[3] = { esp.colors.enemy.r, esp.colors.enemy.g, esp.colors.enemy.b };
+        if (ImGui::ColorEdit3("Enemy Color", enemyColor)) {
+            esp.colors.enemy.r = enemyColor[0];
+            esp.colors.enemy.g = enemyColor[1];
+            esp.colors.enemy.b = enemyColor[2];
+        }
 
         ImGui::EndTabItem();
     }
@@ -228,10 +223,8 @@ void Menu::RenderEntitiesTab()
         ImGui::Text("LocalPlayer: 0x%p", (void*)localPlayer);
         ImGui::Separator();
 
-        // Read entity list pointer
         uintptr_t entityListPtr = 0;
         __try {
-            // First dereference: get pointer from [moduleBase + offset]
             uintptr_t* firstLevelPtr = (uintptr_t*)(moduleBase + 0x18AC04);
             if (firstLevelPtr && *firstLevelPtr != 0) {
                 entityListPtr = *firstLevelPtr;
@@ -252,7 +245,6 @@ void Menu::RenderEntitiesTab()
 
         ImGui::Text("Entity List Pointer: 0x%llX", (unsigned long long)entityListPtr);
 
-        // Read entity count from ac_client.exe + 0x18AC0C (Offsets::EntityCount)
         int32_t entityCount = 0;
         __try {
             entityCount = *(int32_t*)(moduleBase + 0x18AC0C);
@@ -264,99 +256,53 @@ void Menu::RenderEntitiesTab()
             return;
         }
 
-        // Subtract 1 because count includes local player
         int32_t otherPlayersCount = entityCount - 1;
 
         ImGui::Separator();
         ImGui::Text("Total Entities (including you): %d", entityCount);
         ImGui::Text("Other Players: %d", otherPlayersCount);
         ImGui::Separator();
-        ImGui::Text("Reading entity data...");
-        ImGui::Separator();
 
-        // Scan entity list - only iterate up to actual count
         int found = 0;
         for (int i = 1; i <= otherPlayersCount && i < 32; i++) {
             __try {
-                // Read 32-bit pointer at [entityListPtr + (i * 4)]
                 uintptr_t entityAddr = entityListPtr + (i * 4);
                 uint32_t entityPtr32 = *(uint32_t*)entityAddr;
                 Entity* entity = (Entity*)(uintptr_t)entityPtr32;
 
-                if (entity == nullptr) {
-                    continue;
-                }
-
-                // Check if memory is readable
-                if (IsBadReadPtr(entity, sizeof(Entity))) {
-                    ImGui::TextColored(ImVec4(1.f, 0.5f, 0.f, 1.f),
-                        "[%d] Pointer 0x%p - INVALID (bad memory)", i, (void*)entity);
+                if (entity == nullptr || IsBadReadPtr(entity, sizeof(Entity))) {
                     continue;
                 }
 
                 found++;
-
-                // Read entity data
                 bool isLocalPlayer = (entity == localPlayer);
 
-                float x = entity->X;
-                float y = entity->Y;
-                float z = entity->Z;
-                int32_t health = entity->player_health;
-                int32_t armor = entity->armor_quantity;
-                int32_t kills = entity->number_of_kills;
-                //bool isDead = entity->is_dead;
-
-
-                // Read name safely
                 char nameCopy[20] = { 0 };
                 memcpy(nameCopy, entity->name, 19);
                 nameCopy[19] = '\0';
 
-                // Display entity info
                 ImGui::PushID(i);
-
-                ImGui::Text("[%d] Entity 0x%p", i, (void*)entity);
-
+                ImGui::Text("[%d] %s", i, nameCopy);
                 ImGui::Indent(20.0f);
+                ImGui::Text("Health: %d | Armor: %d | Kills: %d",
+                    entity->player_health, entity->armor_quantity, entity->number_of_kills);
 
-                ImGui::Text("Name: %s", nameCopy);
-                ImGui::Text("Health: %d | Armor: %d | Kills: %d", health, armor, kills);
-                ImGui::Text("Position: X=%.1f, Y=%.1f, Z=%.1f", x, y, z);
-
-                if (health<=0) {
-                    ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "Status: DEAD");
-                }
-                else {
-                    ImGui::TextColored(ImVec4(0.f, 1.f, 0.f, 1.f), "Status: ALIVE");
-                }
-
-                // Calculate distance from local player
                 if (!isLocalPlayer && localPlayer) {
-                    /*float dx = x - localPlayer->X;
-                    float dy = y - localPlayer->Y;
-                    float dz = z - localPlayer->Z;
-                    float distance = sqrtf(dx * dx + dy * dy + dz * dz);*/
-                    ImGui::TextColored(ImVec4(1.f, 1.f, 0.f, 1.f), "Distance: %.1f units", CalculateDistance(localPlayer, entity));
+                    ImGui::Text("Distance: %.1f units", CalculateDistance(localPlayer, entity));
                 }
-
                 ImGui::Unindent(20.0f);
                 ImGui::Separator();
-
                 ImGui::PopID();
 
             }
             __except (EXCEPTION_EXECUTE_HANDLER) {
-                ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f),
-                    "[%d] CRASH reading entity data", i);
+                ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "[%d] CRASH reading entity", i);
                 hasErrored = true;
                 break;
             }
         }
 
-        ImGui::Separator();
-        ImGui::TextColored(ImVec4(0.f, 1.f, 0.f, 1.f), "Total entities found: %d" " without local player", found);
-
+        ImGui::TextColored(ImVec4(0.f, 1.f, 0.f, 1.f), "Total: %d players", found);
         ImGui::EndTabItem();
     }
 }
@@ -392,13 +338,12 @@ void Menu::DrawMenuOption(int idx, const char* label, bool* toggle, float* slide
     }
 }
 
-//HandleKeyInput function
 void Menu::HandleKeyInput(WPARAM key)
 {
-    if (!showMenu)
-        return;
+    if (!showMenu) return;
 
     auto& cheatMgr = CheatManager::Get();
+    auto& esp = ESP::Get();
 
     switch (key) {
     case VK_UP:
@@ -437,26 +382,32 @@ void Menu::HandleKeyInput(WPARAM key)
             switch (currentSelection) {
             case 0:
                 cheatMgr.godMode = !cheatMgr.godMode;
+                bHealth = cheatMgr.godMode;  // Sync menu variable
                 std::cout << "[Menu] God Mode: " << (cheatMgr.godMode ? "ON" : "OFF") << "\n";
                 break;
             case 1:
                 cheatMgr.infiniteAmmo = !cheatMgr.infiniteAmmo;
+                bAmmo = cheatMgr.infiniteAmmo;  // Sync menu variable
                 std::cout << "[Menu] Infinite Ammo: " << (cheatMgr.infiniteAmmo ? "ON" : "OFF") << "\n";
                 break;
             case 2:
                 cheatMgr.noRecoil = !cheatMgr.noRecoil;
+                bRecoil = cheatMgr.noRecoil;  // Sync menu variable
                 std::cout << "[Menu] No Recoil: " << (cheatMgr.noRecoil ? "ON" : "OFF") << "\n";
                 break;
             case 3:
                 cheatMgr.noReload = !cheatMgr.noReload;
+                bNoReload = cheatMgr.noReload;  // Sync menu variable
                 std::cout << "[Menu] No Reload: " << (cheatMgr.noReload ? "ON" : "OFF") << "\n";
                 break;
             case 4:
                 cheatMgr.noClip = !cheatMgr.noClip;
+                bNoClip = cheatMgr.noClip;  // Sync menu variable
                 std::cout << "[Menu] No Clip: " << (cheatMgr.noClip ? "ON" : "OFF") << "\n";
                 break;
             case 5:
                 cheatMgr.speedHack = !cheatMgr.speedHack;
+                bSpeed = cheatMgr.speedHack;  // Sync menu variable
                 std::cout << "[Menu] Speed Hack: " << (cheatMgr.speedHack ? "ON" : "OFF") << "\n";
                 break;
             case 6:
@@ -473,6 +424,7 @@ void Menu::HandleKeyInput(WPARAM key)
                 break;
             case 9:
                 cheatMgr.rapidFire = !cheatMgr.rapidFire;
+                bRapidFireEnabled = cheatMgr.rapidFire;  // Sync menu variable
                 std::cout << "[Menu] Rapid Fire: " << (cheatMgr.rapidFire ? "ON" : "OFF") << "\n";
                 break;
             }
@@ -480,9 +432,37 @@ void Menu::HandleKeyInput(WPARAM key)
 
         case 1: // Visuals tab
             if (currentSelection == 0) {
-                // Apply FOV through CheatManager
                 cheatMgr.fovValue = bFov;
-                std::cout << "[Menu] FOV set to: " << bFov << " (will be applied by CheatManager)\n";
+                std::cout << "[Menu] FOV set to: " << bFov << "\n";
+            }
+            break;
+
+        case 2: // ESP tab
+            switch (currentSelection) {
+            case 0:
+                esp.enabled = !esp.enabled;
+                std::cout << "[Menu] ESP: " << (esp.enabled ? "ON" : "OFF") << "\n";
+                break;
+            case 1:
+                esp.drawBoxes = !esp.drawBoxes;
+                std::cout << "[Menu] Draw Boxes: " << (esp.drawBoxes ? "ON" : "OFF") << "\n";
+                break;
+            case 2:
+                esp.drawLines = !esp.drawLines;
+                std::cout << "[Menu] Draw Lines: " << (esp.drawLines ? "ON" : "OFF") << "\n";
+                break;
+            case 3:
+                esp.drawHealth = !esp.drawHealth;
+                std::cout << "[Menu] Draw Health: " << (esp.drawHealth ? "ON" : "OFF") << "\n";
+                break;
+            case 4:
+                esp.drawNames = !esp.drawNames;
+                std::cout << "[Menu] Draw Names: " << (esp.drawNames ? "ON" : "OFF") << "\n";
+                break;
+            case 5:
+                esp.drawDistance = !esp.drawDistance;
+                std::cout << "[Menu] Draw Distance: " << (esp.drawDistance ? "ON" : "OFF") << "\n";
+                break;
             }
             break;
         }
@@ -499,6 +479,10 @@ void Menu::HandleKeyInput(WPARAM key)
             cheatMgr.fovValue = bFov;
             std::cout << "[Menu] FOV decreased to: " << bFov << "\n";
         }
+        else if (currentTab == 2 && currentSelection == 0) {
+            esp.maxDistance = max(100.0f, esp.maxDistance - 50.0f);
+            std::cout << "[Menu] Max Distance decreased to: " << esp.maxDistance << "\n";
+        }
         break;
 
     case VK_RIGHT:
@@ -511,6 +495,10 @@ void Menu::HandleKeyInput(WPARAM key)
             bFov = min(170.0f, bFov + 5.0f);
             cheatMgr.fovValue = bFov;
             std::cout << "[Menu] FOV increased to: " << bFov << "\n";
+        }
+        else if (currentTab == 2 && currentSelection == 0) {
+            esp.maxDistance = min(1000.0f, esp.maxDistance + 50.0f);
+            std::cout << "[Menu] Max Distance increased to: " << esp.maxDistance << "\n";
         }
         break;
 

@@ -156,6 +156,7 @@
     <ClCompile Include="source\core\memory.cpp" />
     <ClCompile Include="source\dllmain.cpp" />
     <ClCompile Include="source\features\cubescript.cpp" />
+    <ClCompile Include="source\features\ESP.cpp" />
     <ClCompile Include="source\features\logic.cpp" />
     <ClCompile Include="source\game\GameState.cpp" />
     <ClCompile Include="source\menu\menu.cpp" />
@@ -175,8 +176,10 @@
     <ClInclude Include="source\core\memory.h" />
     <ClInclude Include="source\features\cubescript.h" />
     <ClInclude Include="source\features\DistanceCalc.h" />
+    <ClInclude Include="source\features\ESP.h" />
     <ClInclude Include="source\features\logic.h" />
     <ClInclude Include="source\features\speed.h" />
+    <ClInclude Include="source\features\Vec3.h" />
     <ClInclude Include="source\game\Entity.h" />
     <ClInclude Include="source\game\EntityList.h" />
     <ClInclude Include="source\game\GameState.h" />

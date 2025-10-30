@@ -1,13 +1,13 @@
 #pragma once
-#include <cmath>
+#include "Vec3.h"
 #include "../game/Entity.h"
-static inline float CalculateDistance(Entity* from, Entity* to)
-{
-    if (!from || !to) return 0.0f;
+#include <cmath>
 
-    float dx = to->X - from->X;
-    float dy = to->Y - from->Y;
-    float dz = to->Z - from->Z;
+inline float CalculateDistance(Entity* local, Entity* target) {
+    if (!local || !target) return 0.0f;
 
+    float dx = target->FeetPos.x - local->FeetPos.x;
+    float dy = target->FeetPos.y - local->FeetPos.y;
+    float dz = target->FeetPos.z - local->FeetPos.z;
     return sqrtf(dx * dx + dy * dy + dz * dz);
 }

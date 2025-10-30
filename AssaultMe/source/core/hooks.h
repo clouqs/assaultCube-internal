@@ -9,4 +9,5 @@ public:
 private:
     static BOOL WINAPI wglSwapBuffersHook(HDC hdc);
     static LRESULT WINAPI WndProcHook(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 };

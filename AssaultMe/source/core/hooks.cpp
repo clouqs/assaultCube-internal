@@ -1,6 +1,7 @@
 #include "Hooks.h"
 #include "../game/GameState.h"
 #include "../features/logic.h"
+#include "../features/ESP.h"
 #include "../menu/menu.h"
 #include "../../external/imgui/imgui.h"
 #include "../../external/imgui/imgui_impl_win32.h"
@@ -21,47 +22,39 @@ namespace {
     WNDPROC originalWndProc = nullptr;
     HWND gameWindow = nullptr;
     bool imguiInitialized = false;
+    bool espInitialized = false;
 }
 
 // Forward declaration for ImGui
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 
 // ============================================
-// WndProc Hook - FIXED VERSION
+// WndProc Hook
 // ============================================
 LRESULT WINAPI Hooks::WndProcHook(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    // Toggle menu with INSERT key
+    // Handle menu toggle
     if (msg == WM_KEYDOWN && wParam == VK_INSERT) {
         Menu::Get().Toggle();
-        std::cout << "[WndProc] Menu toggled: " << Menu::Get().IsVisible() << "\n";
-        return 0;  // Block INSERT from reaching game
+        std::cout << "[WndProc] INSERT pressed - Menu toggled\n";
+        return 0;
     }
 
-    // If menu is visible, handle menu navigation keys
-    if (Menu::Get().IsVisible()) {
-        // Only block menu-specific navigation keys
-        if (msg == WM_KEYDOWN) {
-            // Block these keys ONLY for menu navigation
-            if (wParam == VK_UP || wParam == VK_DOWN ||
-                wParam == VK_LEFT || wParam == VK_RIGHT ||
-                wParam == VK_RETURN || wParam == VK_TAB) {
-                Menu::Get().HandleKeyInput(wParam);
-                return 0;  // Block these from reaching game
-            }
+    // Pass navigation keys to menu when it's open, but let game handle movement keys
+    if (Menu::Get().IsMenuOpen() && msg == WM_KEYDOWN) {
+        // Only intercept menu navigation keys
+        if (wParam == VK_UP || wParam == VK_DOWN || wParam == VK_LEFT ||
+            wParam == VK_RIGHT || wParam == VK_RETURN || wParam == VK_TAB) {
+            Menu::Get().HandleKeyInput(wParam);
+            return 0;  // Block only these keys from game
         }
-
-        // Pass ALL other input to ImGui
-        if (imguiInitialized) {
-            if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
-                return 1;
-            }
-        }
-
-        // IMPORTANT: Let WASD, mouse, and other keys pass through to game
-        // Do NOT return here - fall through to CallWindowProcW
     }
 
-    // Call original window procedure for all non-blocked input
+    // Let ImGui handle input
+    if (Menu::Get().IsMenuOpen()) {
+        ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
+    }
+
+    // Always call original WndProc so game can handle WASD, mouse, etc.
     return CallWindowProcW(originalWndProc, hWnd, msg, wParam, lParam);
 }
 
@@ -80,7 +73,7 @@ BOOL WINAPI Hooks::wglSwapBuffersHook(HDC hdc) {
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-        io.IniFilename = nullptr; // Don't save .ini file
+        io.IniFilename = nullptr;
 
         // Setup style
         ImGui::StyleColorsDark();
@@ -103,7 +96,14 @@ BOOL WINAPI Hooks::wglSwapBuffersHook(HDC hdc) {
         std::cout << "[Hooks] ImGui initialized successfully\n";
     }
 
-    // Update game state (reads pointers from memory)
+    // Initialize ESP on first call
+    if (!espInitialized) {
+        ESP::Get().Initialize();
+        espInitialized = true;
+        std::cout << "[Hooks] ESP initialized successfully\n";
+    }
+
+    // Update game state
     GameState::Get().Update();
 
     // Update all cheats
@@ -112,6 +112,9 @@ BOOL WINAPI Hooks::wglSwapBuffersHook(HDC hdc) {
     // Save OpenGL state
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+
+    // Render ESP BEFORE ImGui
+    ESP::Get().Render();
 
     // Start ImGui frame
     ImGui_ImplOpenGL2_NewFrame();
@@ -184,6 +187,12 @@ bool Hooks::Initialize() {
 // Cleanup hooks
 // ============================================
 void Hooks::Shutdown() {
+    // Shutdown ESP
+    if (espInitialized) {
+        ESP::Get().Shutdown();
+        espInitialized = false;
+    }
+
     // Restore original WndProc
     if (gameWindow && originalWndProc) {
         SetWindowLongPtrW(gameWindow, GWLP_WNDPROC, (LONG_PTR)originalWndProc);
