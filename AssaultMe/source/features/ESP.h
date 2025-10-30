@@ -39,7 +39,8 @@ public:
     } colors;
 
     // Distance settings
-    float maxDistance = 500.0f;
+    float maxDistance = 1000.0f;
+	float minDistance = 200.0f;
     int fontSize = 14;
 
 private:

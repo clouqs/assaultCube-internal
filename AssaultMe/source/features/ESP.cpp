@@ -63,7 +63,9 @@ void ESP::Render() {
         if (entity->player_health <= 0) continue;
 
         float distance = CalculateDistance(localPlayer, entity);
-        if (distance > maxDistance) continue;
+        if (distance < minDistance || distance > maxDistance) {
+            continue;
+        }
 
         // Use BODY position (X, Y, Z) and calculate feet/head from that
         Vec3 headPos = entity->HeadPos;
@@ -104,7 +106,7 @@ void ESP::Render() {
             float y = screenHead.y;
 
             glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-            glLineWidth(2.0f);
+            glLineWidth(1.0f);
 
             glBegin(GL_LINE_LOOP);
             glVertex2f(x, y);
@@ -130,13 +132,43 @@ void ESP::Render() {
             memcpy(nameCopy, entity->name, 19);
 
             ImDrawList* drawList = ImGui::GetBackgroundDrawList();
-            if (drawList) {
+            if (drawNames) {
                 ImVec2 textSize = ImGui::CalcTextSize(nameCopy);
                 ImVec2 textPos(screenHead.x - textSize.x / 2, screenHead.y - 20);
                 drawList->AddText(ImVec2(textPos.x + 1, textPos.y + 1), IM_COL32(0, 0, 0, 200), nameCopy);
                 drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), nameCopy);
             }
         }
+
+		//Health Bar
+        if(drawNames && entity->player_health > 0)
+        {
+            float barHeight = height;
+            float barWidth = 6.0f;
+            float barX = screenHead.x - width / 2.0f - 10.0f;
+            float barY = screenHead.y;
+            // Background
+            DrawFilledRect(barX, barY, barWidth, barHeight, colors.healthBarBG);
+            // Health
+            float healthPercent = (float)entity->player_health / 100.0f;
+            float healthHeight = barHeight * healthPercent;
+            float healthY = barY + (barHeight - healthHeight);
+            Color healthColor;
+            healthColor.r = 1.0f - healthPercent;
+            healthColor.g = healthPercent;
+            healthColor.b = 0.0f;
+            healthColor.a = 1.0f;
+            DrawFilledRect(barX, healthY, barWidth, healthHeight, healthColor);
+            // Border
+            glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
+            glLineWidth(1.0f);
+            glBegin(GL_LINE_LOOP);
+            glVertex2f(barX, barY);
+            glVertex2f(barX + barWidth, barY);
+            glVertex2f(barX + barWidth, barY + barHeight);
+            glVertex2f(barX, barY + barHeight);
+            glEnd();
+		}
     }
 
     glPopMatrix();
