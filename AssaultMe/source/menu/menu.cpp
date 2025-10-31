@@ -33,7 +33,8 @@ Menu& Menu::Get()
 
 void Menu::Initialize(HWND window)
 {
-    // Initialization handled by main ImGui setup
+    LoadSettings();
+    ApplyTheme(menuTheme);
 }
 
 void Menu::Render()
@@ -52,7 +53,7 @@ void Menu::Render()
     ImGui::Begin("Majorana - clouqs", &showMenu,
         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.70f, 0.34f, 1.f, 1.f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(colors.accent[0], colors.accent[1], colors.accent[2], 1.0f));
     ImGui::Text("Press INSERT to toggle menu");
     ImGui::Text("Use arrows to navigate, ENTER to select, TAB to switch tabs");
     ImGui::PopStyleColor();
@@ -64,6 +65,7 @@ void Menu::Render()
         RenderESPTab();
         RenderAimbotTab();
         RenderEntitiesTab();
+        RenderCustomizationTab();  // NEW TAB
         ImGui::EndTabBar();
     }
 
@@ -307,12 +309,136 @@ void Menu::RenderEntitiesTab()
     }
 }
 
+void Menu::ApplyTheme(int theme)
+{
+    switch (theme) {
+    case 0: // Dark Purple (default)
+        colors.background[0] = 0.06f; colors.background[1] = 0.05f; colors.background[2] = 0.07f; colors.background[3] = 0.95f;
+        colors.titleBg[0] = 0.10f; colors.titleBg[1] = 0.09f; colors.titleBg[2] = 0.12f; colors.titleBg[3] = 1.00f;
+        colors.button[0] = 0.20f; colors.button[1] = 0.19f; colors.button[2] = 0.22f; colors.button[3] = 1.00f;
+        colors.text[0] = 0.80f; colors.text[1] = 0.80f; colors.text[2] = 0.83f; colors.text[3] = 1.00f;
+        colors.accent[0] = 0.70f; colors.accent[1] = 0.34f; colors.accent[2] = 1.00f; colors.accent[3] = 1.00f;
+        break;
+
+    case 1: // Light
+        colors.background[0] = 0.94f; colors.background[1] = 0.94f; colors.background[2] = 0.94f; colors.background[3] = 0.95f;
+        colors.titleBg[0] = 0.80f; colors.titleBg[1] = 0.80f; colors.titleBg[2] = 0.83f; colors.titleBg[3] = 1.00f;
+        colors.button[0] = 0.70f; colors.button[1] = 0.70f; colors.button[2] = 0.73f; colors.button[3] = 1.00f;
+        colors.text[0] = 0.10f; colors.text[1] = 0.10f; colors.text[2] = 0.10f; colors.text[3] = 1.00f;
+        colors.accent[0] = 0.26f; colors.accent[1] = 0.59f; colors.accent[2] = 0.98f; colors.accent[3] = 1.00f;
+        colors.selected[0] = 0.10f; colors.selected[1] = 0.10f; colors.selected[2] = 0.80f; colors.selected[3] = 1.00f;
+        break;
+
+    case 2: // Blue
+        colors.background[0] = 0.10f; colors.background[1] = 0.12f; colors.background[2] = 0.18f; colors.background[3] = 0.95f;
+        colors.titleBg[0] = 0.15f; colors.titleBg[1] = 0.17f; colors.titleBg[2] = 0.23f; colors.titleBg[3] = 1.00f;
+        colors.button[0] = 0.20f; colors.button[1] = 0.25f; colors.button[2] = 0.35f; colors.button[3] = 1.00f;
+        colors.text[0] = 0.85f; colors.text[1] = 0.90f; colors.text[2] = 1.00f; colors.text[3] = 1.00f;
+        colors.accent[0] = 0.26f; colors.accent[1] = 0.59f; colors.accent[2] = 0.98f; colors.accent[3] = 1.00f;
+        break;
+
+    case 3: // Custom - don't change colors
+        break;
+    }
+
+    ApplyColors();
+}
+
+void Menu::ApplyColors()
+{
+    ImGuiStyle* style = &ImGui::GetStyle();
+
+    style->Colors[ImGuiCol_WindowBg] = ImVec4(colors.background[0], colors.background[1], colors.background[2], colors.background[3]);
+    style->Colors[ImGuiCol_TitleBg] = ImVec4(colors.titleBg[0], colors.titleBg[1], colors.titleBg[2], colors.titleBg[3]);
+    style->Colors[ImGuiCol_TitleBgActive] = ImVec4(colors.titleBgActive[0], colors.titleBgActive[1], colors.titleBgActive[2], colors.titleBgActive[3]);
+    style->Colors[ImGuiCol_Button] = ImVec4(colors.button[0], colors.button[1], colors.button[2], colors.button[3]);
+    style->Colors[ImGuiCol_ButtonHovered] = ImVec4(colors.buttonHovered[0], colors.buttonHovered[1], colors.buttonHovered[2], colors.buttonHovered[3]);
+    style->Colors[ImGuiCol_ButtonActive] = ImVec4(colors.buttonActive[0], colors.buttonActive[1], colors.buttonActive[2], colors.buttonActive[3]);
+    style->Colors[ImGuiCol_Text] = ImVec4(colors.text[0], colors.text[1], colors.text[2], colors.text[3]);
+}
+
+void Menu::SaveSettings()
+{
+    FILE* f = nullptr;
+    fopen_s(&f, "menu_config.ini", "w");
+    if (f) {
+        fprintf(f, "[Theme]\n");
+        fprintf(f, "theme=%d\n", menuTheme);
+
+        fprintf(f, "\n[Colors]\n");
+        fprintf(f, "background=%.2f,%.2f,%.2f,%.2f\n", colors.background[0], colors.background[1], colors.background[2], colors.background[3]);
+        fprintf(f, "text=%.2f,%.2f,%.2f,%.2f\n", colors.text[0], colors.text[1], colors.text[2], colors.text[3]);
+        fprintf(f, "accent=%.2f,%.2f,%.2f,%.2f\n", colors.accent[0], colors.accent[1], colors.accent[2], colors.accent[3]);
+        fprintf(f, "button=%.2f,%.2f,%.2f,%.2f\n", colors.button[0], colors.button[1], colors.button[2], colors.button[3]);
+
+        fclose(f);
+        std::cout << "[Menu] Settings saved to menu_config.ini\n";
+    }
+}
+
+void Menu::LoadSettings()
+{
+    FILE* f = nullptr;
+    fopen_s(&f, "menu_config.ini", "r");
+    if (f) {
+        char line[256];
+        while (fgets(line, sizeof(line), f)) {
+            if (sscanf_s(line, "theme=%d", &menuTheme) == 1) continue;
+
+            if (sscanf_s(line, "background=%f,%f,%f,%f",
+                &colors.background[0], &colors.background[1], &colors.background[2], &colors.background[3]) == 4) continue;
+            if (sscanf_s(line, "text=%f,%f,%f,%f",
+                &colors.text[0], &colors.text[1], &colors.text[2], &colors.text[3]) == 4) continue;
+            if (sscanf_s(line, "accent=%f,%f,%f,%f",
+                &colors.accent[0], &colors.accent[1], &colors.accent[2], &colors.accent[3]) == 4) continue;
+            if (sscanf_s(line, "button=%f,%f,%f,%f",
+                &colors.button[0], &colors.button[1], &colors.button[2], &colors.button[3]) == 4) continue;
+        }
+        fclose(f);
+        std::cout << "[Menu] Settings loaded from menu_config.ini\n";
+    }
+}
+
+void Menu::RenderCustomizationTab()
+{
+    if (ImGui::BeginTabItem("Customize", nullptr, currentTab == 5 ? ImGuiTabItemFlags_SetSelected : 0)) {
+
+        ImGui::TextColored(ImVec4(colors.accent[0], colors.accent[1], colors.accent[2], 1.0f),
+            "=== MENU CUSTOMIZATION ===");
+        ImGui::Separator();
+
+        DrawMenuOption(0, "Theme: Dark Purple");
+        DrawMenuOption(1, "Theme: Light");
+        DrawMenuOption(2, "Theme: Blue");
+        DrawMenuOption(3, "Theme: Custom");
+
+        ImGui::Separator();
+        DrawMenuOption(4, "Save Settings");
+
+        ImGui::Separator();
+
+        if (menuTheme == 3) {
+            ImGui::Text("Custom Colors (use in-game console to edit):");
+            ImGui::ColorEdit3("Background", colors.background);
+            ImGui::ColorEdit3("Text", colors.text);
+            ImGui::ColorEdit3("Accent", colors.accent);
+            ImGui::ColorEdit3("Button", colors.button);
+        }
+
+        ImGui::Separator();
+        const char* themeNames[] = { "Dark Purple", "Light", "Blue", "Custom" };
+        ImGui::Text("Current Theme: %s", themeNames[menuTheme]);
+
+        ImGui::EndTabItem();
+    }
+}
+
 void Menu::DrawMenuOption(int idx, const char* label, bool* toggle, float* slider)
 {
     bool isSelected = (currentSelection == idx);
 
     if (isSelected) {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.f, 1.f, 0.f, 1.f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(colors.selected[0], colors.selected[1], colors.selected[2], colors.selected[3]));
     }
 
     if (toggle) {
@@ -354,6 +480,7 @@ void Menu::HandleKeyInput(WPARAM key)
         case 1: maxSelections = VisualsSelections; break;
         case 2: maxSelections = ESPSelections; break;
         case 3: maxSelections = AimbotSelections; break;
+        case 5: maxSelections = CustomizationSelections; break;  // ADD THIS
         }
         if (maxSelections > 0) {
             currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
@@ -369,6 +496,7 @@ void Menu::HandleKeyInput(WPARAM key)
         case 1: maxSelections = VisualsSelections; break;
         case 2: maxSelections = ESPSelections; break;
         case 3: maxSelections = AimbotSelections; break;
+        case 5: maxSelections = CustomizationSelections; break;  // ADD THIS
         }
         if (maxSelections > 0) {
             currentSelection = (currentSelection + 1) % maxSelections;
@@ -382,32 +510,32 @@ void Menu::HandleKeyInput(WPARAM key)
             switch (currentSelection) {
             case 0:
                 cheatMgr.godMode = !cheatMgr.godMode;
-                bHealth = cheatMgr.godMode;  // Sync menu variable
+                bHealth = cheatMgr.godMode;
                 std::cout << "[Menu] God Mode: " << (cheatMgr.godMode ? "ON" : "OFF") << "\n";
                 break;
             case 1:
                 cheatMgr.infiniteAmmo = !cheatMgr.infiniteAmmo;
-                bAmmo = cheatMgr.infiniteAmmo;  // Sync menu variable
+                bAmmo = cheatMgr.infiniteAmmo;
                 std::cout << "[Menu] Infinite Ammo: " << (cheatMgr.infiniteAmmo ? "ON" : "OFF") << "\n";
                 break;
             case 2:
                 cheatMgr.noRecoil = !cheatMgr.noRecoil;
-                bRecoil = cheatMgr.noRecoil;  // Sync menu variable
+                bRecoil = cheatMgr.noRecoil;
                 std::cout << "[Menu] No Recoil: " << (cheatMgr.noRecoil ? "ON" : "OFF") << "\n";
                 break;
             case 3:
                 cheatMgr.noReload = !cheatMgr.noReload;
-                bNoReload = cheatMgr.noReload;  // Sync menu variable
+                bNoReload = cheatMgr.noReload;
                 std::cout << "[Menu] No Reload: " << (cheatMgr.noReload ? "ON" : "OFF") << "\n";
                 break;
             case 4:
                 cheatMgr.noClip = !cheatMgr.noClip;
-                bNoClip = cheatMgr.noClip;  // Sync menu variable
+                bNoClip = cheatMgr.noClip;
                 std::cout << "[Menu] No Clip: " << (cheatMgr.noClip ? "ON" : "OFF") << "\n";
                 break;
             case 5:
                 cheatMgr.speedHack = !cheatMgr.speedHack;
-                bSpeed = cheatMgr.speedHack;  // Sync menu variable
+                bSpeed = cheatMgr.speedHack;
                 std::cout << "[Menu] Speed Hack: " << (cheatMgr.speedHack ? "ON" : "OFF") << "\n";
                 break;
             case 6:
@@ -424,7 +552,7 @@ void Menu::HandleKeyInput(WPARAM key)
                 break;
             case 9:
                 cheatMgr.rapidFire = !cheatMgr.rapidFire;
-                bRapidFireEnabled = cheatMgr.rapidFire;  // Sync menu variable
+                bRapidFireEnabled = cheatMgr.rapidFire;
                 std::cout << "[Menu] Rapid Fire: " << (cheatMgr.rapidFire ? "ON" : "OFF") << "\n";
                 break;
             }
@@ -465,8 +593,35 @@ void Menu::HandleKeyInput(WPARAM key)
                 break;
             }
             break;
+
+        case 5: // Customization tab - MOVED HERE (proper position)
+            switch (currentSelection) {
+            case 0:
+                menuTheme = 0;
+                ApplyTheme(0);
+                std::cout << "[Menu] Applied Dark Purple theme\n";
+                break;
+            case 1:
+                menuTheme = 1;
+                ApplyTheme(1);
+                std::cout << "[Menu] Applied Light theme\n";
+                break;
+            case 2:
+                menuTheme = 2;
+                ApplyTheme(2);
+                std::cout << "[Menu] Applied Blue theme\n";
+                break;
+            case 3:
+                menuTheme = 3;
+                std::cout << "[Menu] Switched to Custom theme\n";
+                break;
+            case 4:
+                SaveSettings();
+                break;
+            }
+            break;
         }
-        break;
+        break;  // This closes the VK_RETURN case
 
     case VK_LEFT:
         if (currentTab == 0 && currentSelection == 9) {
@@ -503,7 +658,7 @@ void Menu::HandleKeyInput(WPARAM key)
         break;
 
     case VK_TAB:
-        currentTab = (currentTab + 1) % 5;
+        currentTab = (currentTab + 1) % 6;  // Changed from 5 to 6 for new tab
         currentSelection = 0;
         std::cout << "[Menu Navigation] Changed to tab: " << currentTab << "\n";
         break;
