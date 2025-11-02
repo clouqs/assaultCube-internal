@@ -484,9 +484,12 @@ void Menu::RenderCustomizationTab()
             }
 
             ImGui::Separator();
+            DrawMenuOption(8, "Save Settings");  // This is index 8 when custom theme
         }
-
-        DrawMenuOption(8, "Save Settings");
+        else {
+            // When NOT custom theme, "Save Settings" is index 4
+            DrawMenuOption(4, "Save Settings");
+        }
 
         ImGui::Separator();
         const char* themeNames[] = { "Dark Purple", "Light", "Blue", "Custom" };
@@ -555,7 +558,7 @@ void Menu::HandleKeyInput(WPARAM key)
             case 1: maxSelections = VisualsSelections; break;
             case 2: maxSelections = ESPSelections; break;
             case 3: maxSelections = AimbotSelections; break;
-            case 5: maxSelections = CustomizationSelections; break;
+            case 5: maxSelections = GetCustomizationSelections(); break;  // CHANGED
             }
             if (maxSelections > 0) {
                 currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
@@ -578,7 +581,7 @@ void Menu::HandleKeyInput(WPARAM key)
             case 1: maxSelections = VisualsSelections; break;
             case 2: maxSelections = ESPSelections; break;
             case 3: maxSelections = AimbotSelections; break;
-            case 5: maxSelections = CustomizationSelections; break;
+            case 5: maxSelections = GetCustomizationSelections(); break;  // CHANGED
             }
             if (maxSelections > 0) {
                 currentSelection = (currentSelection + 1) % maxSelections;
@@ -678,14 +681,15 @@ void Menu::HandleKeyInput(WPARAM key)
             break;
 
         case 5: // Customization tab
+            // If we're editing a color, toggle editing mode
             if (menuTheme == 3 && currentSelection >= 4 && currentSelection <= 7) {
                 editingColor = !editingColor;
                 if (editingColor) {
-                    editingColorComponent = 0; // Start with R component
+                    editingColorComponent = 0;
                     std::cout << "[Menu] Started editing color\n";
                 }
                 else {
-                    ApplyColors(); // Apply the changes
+                    ApplyColors();
                     std::cout << "[Menu] Finished editing color\n";
                 }
             }
@@ -715,16 +719,24 @@ void Menu::HandleKeyInput(WPARAM key)
                     editingColor = false;
                     std::cout << "[Menu] Switched to Custom theme\n";
                     break;
+                case 4:
+                    if (menuTheme != 3) {
+                        SaveSettings();
+                        editingColor = false;
+                    }
+                    break;
                 case 8:
-                    SaveSettings();
-                    editingColor = false;
+                    // Save Settings when custom theme is active
+                    if (menuTheme == 3) {
+                        SaveSettings();
+                        editingColor = false;
+                    }
                     break;
                 }
             }
             break;
-        }
-        break;
-        // This closes the VK_RETURN case
+        }  // ADD THIS CLOSING BRACE - closes the switch(currentTab)
+        break;  // This closes VK_RETURN case
 
     case VK_LEFT:
         if (currentTab == 5 && editingColor && menuTheme == 3) {

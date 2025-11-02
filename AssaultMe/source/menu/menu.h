@@ -77,4 +77,7 @@ private:
     static constexpr int ESPSelections = 6;
     static constexpr int AimbotSelections = 2;
     static constexpr int CustomizationSelections = 9;
+    int GetCustomizationSelections() const {
+        return menuTheme == 3 ? 9 : 5; // 9 if custom theme, 5 otherwise
+    }
 };
