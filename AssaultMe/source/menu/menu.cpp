@@ -413,21 +413,90 @@ void Menu::RenderCustomizationTab()
         DrawMenuOption(3, "Theme: Custom");
 
         ImGui::Separator();
-        DrawMenuOption(4, "Save Settings");
-
-        ImGui::Separator();
 
         if (menuTheme == 3) {
-            ImGui::Text("Custom Colors (use in-game console to edit):");
-            ImGui::ColorEdit3("Background", colors.background);
-            ImGui::ColorEdit3("Text", colors.text);
-            ImGui::ColorEdit3("Accent", colors.accent);
-            ImGui::ColorEdit3("Button", colors.button);
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f),
+                "Custom Theme - Use LEFT/RIGHT to adjust values");
+            ImGui::Separator();
+
+            // Background color
+            DrawMenuOption(4, "Background Color");
+            if (!editingColor || currentSelection != 4) {
+                ImGui::Text("  RGB: %.2f, %.2f, %.2f",
+                    colors.background[0], colors.background[1], colors.background[2]);
+            }
+            else {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
+                const char* components[] = { "R", "G", "B" };
+                ImGui::Text("  Editing %s: %.2f (LEFT/RIGHT to adjust, UP/DOWN to switch component)",
+                    components[editingColorComponent],
+                    editingColorComponent == 0 ? colors.background[0] :
+                    editingColorComponent == 1 ? colors.background[1] : colors.background[2]);
+                ImGui::PopStyleColor();
+            }
+
+            // Text color
+            DrawMenuOption(5, "Text Color");
+            if (!editingColor || currentSelection != 5) {
+                ImGui::Text("  RGB: %.2f, %.2f, %.2f",
+                    colors.text[0], colors.text[1], colors.text[2]);
+            }
+            else {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
+                const char* components[] = { "R", "G", "B" };
+                ImGui::Text("  Editing %s: %.2f (LEFT/RIGHT to adjust, UP/DOWN to switch component)",
+                    components[editingColorComponent],
+                    editingColorComponent == 0 ? colors.text[0] :
+                    editingColorComponent == 1 ? colors.text[1] : colors.text[2]);
+                ImGui::PopStyleColor();
+            }
+
+            // Accent color
+            DrawMenuOption(6, "Accent Color");
+            if (!editingColor || currentSelection != 6) {
+                ImGui::Text("  RGB: %.2f, %.2f, %.2f",
+                    colors.accent[0], colors.accent[1], colors.accent[2]);
+            }
+            else {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
+                const char* components[] = { "R", "G", "B" };
+                ImGui::Text("  Editing %s: %.2f (LEFT/RIGHT to adjust, UP/DOWN to switch component)",
+                    components[editingColorComponent],
+                    editingColorComponent == 0 ? colors.accent[0] :
+                    editingColorComponent == 1 ? colors.accent[1] : colors.accent[2]);
+                ImGui::PopStyleColor();
+            }
+
+            // Button color
+            DrawMenuOption(7, "Button Color");
+            if (!editingColor || currentSelection != 7) {
+                ImGui::Text("  RGB: %.2f, %.2f, %.2f",
+                    colors.button[0], colors.button[1], colors.button[2]);
+            }
+            else {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
+                const char* components[] = { "R", "G", "B" };
+                ImGui::Text("  Editing %s: %.2f (LEFT/RIGHT to adjust, UP/DOWN to switch component)",
+                    components[editingColorComponent],
+                    editingColorComponent == 0 ? colors.button[0] :
+                    editingColorComponent == 1 ? colors.button[1] : colors.button[2]);
+                ImGui::PopStyleColor();
+            }
+
+            ImGui::Separator();
         }
+
+        DrawMenuOption(8, "Save Settings");
 
         ImGui::Separator();
         const char* themeNames[] = { "Dark Purple", "Light", "Blue", "Custom" };
         ImGui::Text("Current Theme: %s", themeNames[menuTheme]);
+
+        if (editingColor) {
+            ImGui::Separator();
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f),
+                "Press ENTER to finish editing");
+        }
 
         ImGui::EndTabItem();
     }
@@ -474,32 +543,46 @@ void Menu::HandleKeyInput(WPARAM key)
     switch (key) {
     case VK_UP:
     {
-        int maxSelections = 0;
-        switch (currentTab) {
-        case 0: maxSelections = MainCheatSelections; break;
-        case 1: maxSelections = VisualsSelections; break;
-        case 2: maxSelections = ESPSelections; break;
-        case 3: maxSelections = AimbotSelections; break;
-        case 5: maxSelections = CustomizationSelections; break;  // ADD THIS
+        // If editing color, switch to previous component
+        if (currentTab == 5 && editingColor) {
+            editingColorComponent = (editingColorComponent - 1 + 3) % 3;
+            std::cout << "[Menu] Switched to component: " << (editingColorComponent == 0 ? "R" : editingColorComponent == 1 ? "G" : "B") << "\n";
         }
-        if (maxSelections > 0) {
-            currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
+        else {
+            int maxSelections = 0;
+            switch (currentTab) {
+            case 0: maxSelections = MainCheatSelections; break;
+            case 1: maxSelections = VisualsSelections; break;
+            case 2: maxSelections = ESPSelections; break;
+            case 3: maxSelections = AimbotSelections; break;
+            case 5: maxSelections = CustomizationSelections; break;
+            }
+            if (maxSelections > 0) {
+                currentSelection = (currentSelection - 1 + maxSelections) % maxSelections;
+            }
         }
         break;
     }
 
     case VK_DOWN:
     {
-        int maxSelections = 0;
-        switch (currentTab) {
-        case 0: maxSelections = MainCheatSelections; break;
-        case 1: maxSelections = VisualsSelections; break;
-        case 2: maxSelections = ESPSelections; break;
-        case 3: maxSelections = AimbotSelections; break;
-        case 5: maxSelections = CustomizationSelections; break;  // ADD THIS
+        // If editing color, switch to next component
+        if (currentTab == 5 && editingColor) {
+            editingColorComponent = (editingColorComponent + 1) % 3;
+            std::cout << "[Menu] Switched to component: " << (editingColorComponent == 0 ? "R" : editingColorComponent == 1 ? "G" : "B") << "\n";
         }
-        if (maxSelections > 0) {
-            currentSelection = (currentSelection + 1) % maxSelections;
+        else {
+            int maxSelections = 0;
+            switch (currentTab) {
+            case 0: maxSelections = MainCheatSelections; break;
+            case 1: maxSelections = VisualsSelections; break;
+            case 2: maxSelections = ESPSelections; break;
+            case 3: maxSelections = AimbotSelections; break;
+            case 5: maxSelections = CustomizationSelections; break;
+            }
+            if (maxSelections > 0) {
+                currentSelection = (currentSelection + 1) % maxSelections;
+            }
         }
         break;
     }
@@ -594,37 +677,73 @@ void Menu::HandleKeyInput(WPARAM key)
             }
             break;
 
-        case 5: // Customization tab - MOVED HERE (proper position)
-            switch (currentSelection) {
-            case 0:
-                menuTheme = 0;
-                ApplyTheme(0);
-                std::cout << "[Menu] Applied Dark Purple theme\n";
-                break;
-            case 1:
-                menuTheme = 1;
-                ApplyTheme(1);
-                std::cout << "[Menu] Applied Light theme\n";
-                break;
-            case 2:
-                menuTheme = 2;
-                ApplyTheme(2);
-                std::cout << "[Menu] Applied Blue theme\n";
-                break;
-            case 3:
-                menuTheme = 3;
-                std::cout << "[Menu] Switched to Custom theme\n";
-                break;
-            case 4:
-                SaveSettings();
-                break;
+        case 5: // Customization tab
+            if (menuTheme == 3 && currentSelection >= 4 && currentSelection <= 7) {
+                editingColor = !editingColor;
+                if (editingColor) {
+                    editingColorComponent = 0; // Start with R component
+                    std::cout << "[Menu] Started editing color\n";
+                }
+                else {
+                    ApplyColors(); // Apply the changes
+                    std::cout << "[Menu] Finished editing color\n";
+                }
+            }
+            // Otherwise handle theme selection and save
+            else {
+                switch (currentSelection) {
+                case 0:
+                    menuTheme = 0;
+                    ApplyTheme(0);
+                    editingColor = false;
+                    std::cout << "[Menu] Applied Dark Purple theme\n";
+                    break;
+                case 1:
+                    menuTheme = 1;
+                    ApplyTheme(1);
+                    editingColor = false;
+                    std::cout << "[Menu] Applied Light theme\n";
+                    break;
+                case 2:
+                    menuTheme = 2;
+                    ApplyTheme(2);
+                    editingColor = false;
+                    std::cout << "[Menu] Applied Blue theme\n";
+                    break;
+                case 3:
+                    menuTheme = 3;
+                    editingColor = false;
+                    std::cout << "[Menu] Switched to Custom theme\n";
+                    break;
+                case 8:
+                    SaveSettings();
+                    editingColor = false;
+                    break;
+                }
             }
             break;
         }
-        break;  // This closes the VK_RETURN case
+        break;
+        // This closes the VK_RETURN case
 
     case VK_LEFT:
-        if (currentTab == 0 && currentSelection == 9) {
+        if (currentTab == 5 && editingColor && menuTheme == 3) {
+            // Adjust the current color component
+            float* colorToEdit = nullptr;
+            switch (currentSelection) {
+            case 4: colorToEdit = colors.background; break;
+            case 5: colorToEdit = colors.text; break;
+            case 6: colorToEdit = colors.accent; break;
+            case 7: colorToEdit = colors.button; break;
+            }
+
+            if (colorToEdit) {
+                colorToEdit[editingColorComponent] = max(0.0f, colorToEdit[editingColorComponent] - 0.05f);
+                ApplyColors();
+                std::cout << "[Menu] Decreased color component to: " << colorToEdit[editingColorComponent] << "\n";
+            }
+        }
+        else if (currentTab == 0 && currentSelection == 9) {
             bRapidFire = max(30LL, bRapidFire - 5LL);
             cheatMgr.rapidFireValue = bRapidFire;
             std::cout << "[Menu] RapidFire decreased to: " << bRapidFire << "\n";
@@ -641,7 +760,23 @@ void Menu::HandleKeyInput(WPARAM key)
         break;
 
     case VK_RIGHT:
-        if (currentTab == 0 && currentSelection == 9) {
+        if (currentTab == 5 && editingColor && menuTheme == 3) {
+            // Adjust the current color component
+            float* colorToEdit = nullptr;
+            switch (currentSelection) {
+            case 4: colorToEdit = colors.background; break;
+            case 5: colorToEdit = colors.text; break;
+            case 6: colorToEdit = colors.accent; break;
+            case 7: colorToEdit = colors.button; break;
+            }
+
+            if (colorToEdit) {
+                colorToEdit[editingColorComponent] = min(1.0f, colorToEdit[editingColorComponent] + 0.05f);
+                ApplyColors();
+                std::cout << "[Menu] Increased color component to: " << colorToEdit[editingColorComponent] << "\n";
+            }
+        }
+        else if (currentTab == 0 && currentSelection == 9) {
             bRapidFire = min(120LL, bRapidFire + 5LL);
             cheatMgr.rapidFireValue = bRapidFire;
             std::cout << "[Menu] RapidFire increased to: " << bRapidFire << "\n";

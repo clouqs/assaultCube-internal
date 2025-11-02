@@ -63,6 +63,10 @@ private:
     int currentTab = 0;
     int currentSelection = 0;
 
+    //menu editing
+    bool editingColor = false;
+    int editingColorComponent = 0;
+
     void ApplyTheme(int theme);
     void ApplyColors();
     void SaveSettings();
@@ -72,5 +76,5 @@ private:
     static constexpr int VisualsSelections = 1;
     static constexpr int ESPSelections = 6;
     static constexpr int AimbotSelections = 2;
-    static constexpr int CustomizationSelections = 5;
+    static constexpr int CustomizationSelections = 9;
 };
