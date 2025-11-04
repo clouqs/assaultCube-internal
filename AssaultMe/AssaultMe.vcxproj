@@ -155,6 +155,7 @@
     <ClCompile Include="source\core\hooks.cpp" />
     <ClCompile Include="source\core\memory.cpp" />
     <ClCompile Include="source\dllmain.cpp" />
+    <ClCompile Include="source\features\Aimbot.cpp" />
     <ClCompile Include="source\features\cubescript.cpp" />
     <ClCompile Include="source\features\ESP.cpp" />
     <ClCompile Include="source\features\logic.cpp" />
@@ -174,6 +175,7 @@
     <ClInclude Include="source\core\Globals.h" />
     <ClInclude Include="source\core\hooks.h" />
     <ClInclude Include="source\core\memory.h" />
+    <ClInclude Include="source\features\Aimbot.h" />
     <ClInclude Include="source\features\cubescript.h" />
     <ClInclude Include="source\features\DistanceCalc.h" />
     <ClInclude Include="source\features\ESP.h" />

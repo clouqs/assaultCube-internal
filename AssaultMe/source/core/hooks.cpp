@@ -2,6 +2,7 @@
 #include "../game/GameState.h"
 #include "../features/logic.h"
 #include "../features/ESP.h"
+#include "../features/Aimbot.h"
 #include "../menu/menu.h"
 #include "../../external/imgui/imgui.h"
 #include "../../external/imgui/imgui_impl_win32.h"
@@ -108,6 +109,9 @@ BOOL WINAPI Hooks::wglSwapBuffersHook(HDC hdc) {
 
     // Update all cheats
     CheatManager::Get().Update();
+
+	// Update Aimbot
+    Aimbot::Get().Update();
 
     // Save OpenGL state
     glPushAttrib(GL_ALL_ATTRIB_BITS);

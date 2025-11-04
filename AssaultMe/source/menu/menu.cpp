@@ -10,6 +10,7 @@
 #include "../features/logic.h"
 #include "../features/DistanceCalc.h"
 #include "../features/ESP.h"
+#include "../features/Aimbot.h"
 #include <iostream>
 
 bool Menu::bHealth = false;
@@ -183,11 +184,39 @@ void Menu::RenderAimbotTab()
 {
     if (ImGui::BeginTabItem("Aimbot", nullptr, currentTab == 3 ? ImGuiTabItemFlags_SetSelected : 0)) {
 
-        ImGui::Text("Aimbot features coming soon...");
-        DrawMenuOption(0, "Enable Aimbot", &dummy);
-        DrawMenuOption(1, "FOV", nullptr, &dummyfloat);
+        auto& aimbot = Aimbot::Get();
 
-        ImGui::SliderFloat("FOV", &dummyfloat, 1.0f, 180.0f);
+        ImGui::TextColored(ImVec4(1.f, 0.5f, 0.f, 1.f), "=== AIMBOT SETTINGS ===");
+        ImGui::Separator();
+
+        DrawMenuOption(0, "Enable Aimbot", &aimbot.enabled);
+        DrawMenuOption(1, "Smooth Aim", &aimbot.smoothAim);
+
+        ImGui::Separator();
+        ImGui::Text("Smooth Amount: %.1f", aimbot.smoothAmount);
+        ImGui::Text("FOV: %.1f", aimbot.fov);
+
+        ImGui::Separator();
+        DrawMenuOption(2, "Visibility Check", &aimbot.visibilityCheck);
+        DrawMenuOption(3, "Team Check", &aimbot.teamCheck);
+        DrawMenuOption(4, "Require Aim Key", &aimbot.aimKey);
+
+        ImGui::Separator();
+        ImGui::Text("Target Priority:");
+        DrawMenuOption(5, "Closest to Crosshair");
+        DrawMenuOption(6, "Closest Distance");
+        DrawMenuOption(7, "Lowest Health");
+
+        ImGui::Separator();
+        ImGui::Text("Aim Bone:");
+        DrawMenuOption(8, "Head");
+        DrawMenuOption(9, "Chest");
+
+        ImGui::Separator();
+        const char* priorities[] = { "Crosshair", "Distance", "Health" };
+        const char* bones[] = { "Head", "Neck", "Chest" };
+        ImGui::Text("Current Priority: %s", priorities[aimbot.priority]);
+        ImGui::Text("Current Bone: %s", bones[aimbot.targetBone]);
 
         ImGui::EndTabItem();
     }
@@ -542,6 +571,7 @@ void Menu::HandleKeyInput(WPARAM key)
 
     auto& cheatMgr = CheatManager::Get();
     auto& esp = ESP::Get();
+    auto& aimbot = Aimbot::Get();
 
     switch (key) {
     case VK_UP:
@@ -679,6 +709,50 @@ void Menu::HandleKeyInput(WPARAM key)
                 break;
             }
             break;
+        case 3: // Aimbot tab
+            switch (currentSelection) {
+            case 0:
+                aimbot.enabled = !aimbot.enabled;
+                std::cout << "[Menu] Aimbot: " << (aimbot.enabled ? "ON" : "OFF") << "\n";
+                break;
+            case 1:
+                aimbot.smoothAim = !aimbot.smoothAim;
+                std::cout << "[Menu] Smooth Aim: " << (aimbot.smoothAim ? "ON" : "OFF") << "\n";
+                break;
+            case 2:
+                aimbot.visibilityCheck = !aimbot.visibilityCheck;
+                std::cout << "[Menu] Visibility Check: " << (aimbot.visibilityCheck ? "ON" : "OFF") << "\n";
+                break;
+            case 3:
+                aimbot.teamCheck = !aimbot.teamCheck;
+                std::cout << "[Menu] Team Check: " << (aimbot.teamCheck ? "ON" : "OFF") << "\n";
+                break;
+            case 4:
+                aimbot.aimKey = !aimbot.aimKey;
+                std::cout << "[Menu] Require Aim Key: " << (aimbot.aimKey ? "ON" : "OFF") << "\n";
+                break;
+            case 5:
+                aimbot.priority = Aimbot::CLOSEST_TO_CROSSHAIR;
+                std::cout << "[Menu] Priority: Closest to Crosshair\n";
+                break;
+            case 6:
+                aimbot.priority = Aimbot::CLOSEST_DISTANCE;
+                std::cout << "[Menu] Priority: Closest Distance\n";
+                break;
+            case 7:
+                aimbot.priority = Aimbot::LOWEST_HEALTH;
+                std::cout << "[Menu] Priority: Lowest Health\n";
+                break;
+            case 8:
+                aimbot.targetBone = Aimbot::HEAD;
+                std::cout << "[Menu] Aim Bone: Head\n";
+                break;
+            case 9:
+                aimbot.targetBone = Aimbot::CHEST;
+                std::cout << "[Menu] Aim Bone: Chest\n";
+                break;
+            }
+            break;
 
         case 5: // Customization tab
             // If we're editing a color, toggle editing mode
@@ -735,7 +809,7 @@ void Menu::HandleKeyInput(WPARAM key)
                 }
             }
             break;
-        }  // ADD THIS CLOSING BRACE - closes the switch(currentTab)
+        }  
         break;  // This closes VK_RETURN case
 
     case VK_LEFT:
@@ -769,6 +843,16 @@ void Menu::HandleKeyInput(WPARAM key)
             esp.maxDistance = max(100.0f, esp.maxDistance - 50.0f);
             std::cout << "[Menu] Max Distance decreased to: " << esp.maxDistance << "\n";
         }
+        else if (currentTab == 3) {  // Aimbot sliders
+            if (currentSelection == 1) {
+                aimbot.smoothAmount = max(1.0f, aimbot.smoothAmount - 1.0f);
+                std::cout << "[Menu] Smooth Amount: " << aimbot.smoothAmount << "\n";
+            }
+            else if (currentSelection == 0) {
+                aimbot.fov = max(10.0f, aimbot.fov - 5.0f);
+                std::cout << "[Menu] Aimbot FOV: " << aimbot.fov << "\n";
+            }
+        }
         break;
 
     case VK_RIGHT:
@@ -801,6 +885,16 @@ void Menu::HandleKeyInput(WPARAM key)
         else if (currentTab == 2 && currentSelection == 0) {
             esp.maxDistance = min(1000.0f, esp.maxDistance + 50.0f);
             std::cout << "[Menu] Max Distance increased to: " << esp.maxDistance << "\n";
+        }
+        else if (currentTab == 3) {  // Aimbot sliders
+            if (currentSelection == 1) {
+                aimbot.smoothAmount = min(20.0f, aimbot.smoothAmount + 1.0f);
+                std::cout << "[Menu] Smooth Amount: " << aimbot.smoothAmount << "\n";
+            }
+            else if (currentSelection == 0) {
+                aimbot.fov = min(180.0f, aimbot.fov + 5.0f);
+                std::cout << "[Menu] Aimbot FOV: " << aimbot.fov << "\n";
+            }
         }
         break;
 

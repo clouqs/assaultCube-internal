@@ -33,7 +33,9 @@ public:
     int32_t number_of_kills;               // 0x01DC - 0x01DF: Number of kills
     char   pad_01E0[32];                   // 0x01E0 - 0x01FF: 32 bytes padding
     char   name[19];                       // 0x0200 - 0x0212: Player name (19 characters)
-    char   pad_0213[264];                  // 0x0213 - 0x031A: 264 bytes padding
+    char   pad_0213[249];                  // 0x0213 - 0x030B: 249 bytes padding (adjusted)
+    int8_t TeamID;                         // 0x030C - 0x030C: Team ID
+    char   pad_030D[14];                   // 0x030D - 0x031A: 14 bytes padding (adjusted)
     bool   is_dead;                        // 0x031B - 0x031B: Is dead flag
     char   pad_031C[75];                   // 0x031C - 0x0366: 75 bytes padding
     void* weapon_in_hand;                  // 0x0367 - 0x036E: Pointer to current weapon

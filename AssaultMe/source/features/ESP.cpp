@@ -106,7 +106,7 @@ void ESP::Render() {
             float y = screenHead.y;
 
             glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-            glLineWidth(1.0f);
+			glLineWidth(1.0f); //change for thicker lines
 
             glBegin(GL_LINE_LOOP);
             glVertex2f(x, y);
@@ -141,7 +141,7 @@ void ESP::Render() {
         }
 
 		//Health Bar
-        if(drawNames && entity->player_health > 0)
+        if(drawHealth && entity->player_health > 0)
         {
             float barHeight = height;
             float barWidth = 6.0f;

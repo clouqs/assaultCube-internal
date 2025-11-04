@@ -60,6 +60,9 @@
     <ClCompile Include="source\features\ESP.cpp">
       <Filter>File di origine</Filter>
     </ClCompile>
+    <ClCompile Include="source\features\Aimbot.cpp">
+      <Filter>File di origine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\core\hooks.h">
@@ -129,6 +132,9 @@
       <Filter>File di intestazione</Filter>
     </ClInclude>
     <ClInclude Include="source\features\Vec3.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="source\features\Aimbot.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
   </ItemGroup>
