@@ -24,13 +24,14 @@ struct Angle {
 Angle AngleToEnemy(Entity* localPlayer, Vec3 absolutePos) {
     Angle result;
 
+    // AssaultCube uses a different coordinate system
+    // Calculate yaw (horizontal angle)
     float azimuth_xy = atan2f(absolutePos.y, absolutePos.x);
     result.yaw = azimuth_xy * (180.0f / (float)M_PI);
 
-    float hypotenuse = sqrtf(absolutePos.x * absolutePos.x +
-        absolutePos.y * absolutePos.y +
-        absolutePos.z * absolutePos.z);
-    result.pitch = asinf(absolutePos.z / hypotenuse) * (180.0f / (float)M_PI);
+    // Calculate pitch (vertical angle)
+    float distance = sqrtf(absolutePos.x * absolutePos.x + absolutePos.y * absolutePos.y);
+    result.pitch = -atan2f(absolutePos.z, distance) * (180.0f / (float)M_PI);
 
     return result;
 }
@@ -267,61 +268,38 @@ void Aimbot::AimAtTarget(Entity* target)
     auto& gameState = GameState::Get();
     Entity* localPlayer = gameState.GetLocalPlayer();
 
-    if (!localPlayer || !target) {
-        std::cout << "[Aimbot] AimAtTarget: Invalid player or target\n";
-        return;
-    }
-
-    std::cout << "[Aimbot] ===== AIMING AT TARGET =====\n";
-    std::cout << "[Aimbot] Target: " << target->name << " HP: " << target->player_health << "\n";
-    std::cout << "[Aimbot] Current angles - Yaw: " << localPlayer->lookleft_right
-        << " Pitch: " << localPlayer->lookup_down << "\n";
+    if (!localPlayer || !target) return;
 
     // Get target position based on bone
     Vec3 targetPos;
     switch (targetBone) {
     case HEAD:
         targetPos = target->HeadPos;
-        std::cout << "[Aimbot] Targeting HEAD\n";
         break;
     case NECK:
         targetPos = target->HeadPos;
         targetPos.z -= 1.88f;
-        std::cout << "[Aimbot] Targeting NECK\n";
         break;
     case CHEST:
         targetPos = target->FeetPos;
         targetPos.z += 0.5f;
-        std::cout << "[Aimbot] Targeting CHEST\n";
         break;
     }
 
-    std::cout << "[Aimbot] Target pos: X:" << targetPos.x << " Y:" << targetPos.y << " Z:" << targetPos.z << "\n";
-    std::cout << "[Aimbot] Local head: X:" << localPlayer->HeadPos.x << " Y:" << localPlayer->HeadPos.y
-        << " Z:" << localPlayer->HeadPos.z << "\n";
-
     // Calculate absolute position difference
-    Vec3 absolutePos;
-    absolutePos.x = targetPos.x - localPlayer->HeadPos.x;
-    absolutePos.y = targetPos.y - localPlayer->HeadPos.y;
-    absolutePos.z = targetPos.z - localPlayer->HeadPos.z;
+    Vec3 delta;
+    delta.x = targetPos.x - localPlayer->HeadPos.x;
+    delta.y = targetPos.y - localPlayer->HeadPos.y;
+    delta.z = targetPos.z - localPlayer->HeadPos.z;
 
-    std::cout << "[Aimbot] Absolute delta: X:" << absolutePos.x << " Y:" << absolutePos.y
-        << " Z:" << absolutePos.z << "\n";
-
-    // Get angle to enemy
-    Angle angleToTarget = AngleToEnemy(localPlayer, absolutePos);
-
-    float targetYaw = angleToTarget.yaw;
-    float targetPitch = angleToTarget.pitch;
-
-    std::cout << "[Aimbot] Target angles - Yaw: " << targetYaw << " Pitch: " << targetPitch << "\n";
+    // Calculate angles
+    float distance = sqrtf(delta.x * delta.x + delta.y * delta.y);
+    float targetYaw = atan2f(delta.y, delta.x) * (180.0f / (float)M_PI);
+    float targetPitch = -atan2f(delta.z, distance) * (180.0f / (float)M_PI);
 
     // Calculate delta angles
     float deltaYaw = targetYaw - localPlayer->lookleft_right;
     float deltaPitch = targetPitch - localPlayer->lookup_down;
-
-    std::cout << "[Aimbot] Delta before normalize - Yaw: " << deltaYaw << " Pitch: " << deltaPitch << "\n";
 
     // Normalize angles
     if (deltaYaw > 180.0f) deltaYaw -= 360.0f;
@@ -330,34 +308,24 @@ void Aimbot::AimAtTarget(Entity* target)
     if (deltaPitch > 180.0f) deltaPitch -= 360.0f;
     else if (deltaPitch < -180.0f) deltaPitch += 360.0f;
 
-    std::cout << "[Aimbot] Delta after normalize - Yaw: " << deltaYaw << " Pitch: " << deltaPitch << "\n";
-
     if (smoothAim) {
-        // Apply smooth aim
+        // FIXED: Use division like the working example
+        // Higher smoothAmount = smoother (slower)
+        // Lower smoothAmount = faster
         float lerpFactor = 1.0f / smoothAmount;
-        std::cout << "[Aimbot] Smooth aim - Factor: " << lerpFactor << " Amount: " << smoothAmount << "\n";
 
-        float newYaw = localPlayer->lookleft_right + (deltaYaw * lerpFactor);
-        float newPitch = localPlayer->lookup_down + (deltaPitch * lerpFactor);
-
-        std::cout << "[Aimbot] Setting angles - New Yaw: " << newYaw << " New Pitch: " << newPitch << "\n";
-
-        localPlayer->lookleft_right = newYaw;
-        localPlayer->lookup_down = newPitch;
+        localPlayer->lookleft_right += deltaYaw / lerpFactor;
+        localPlayer->lookup_down += deltaPitch / lerpFactor;
     }
     else {
         // Snap aim
-        std::cout << "[Aimbot] SNAP AIM - Setting to target angles directly\n";
         localPlayer->lookleft_right = targetYaw;
         localPlayer->lookup_down = targetPitch;
     }
 
     // Clamp pitch
-    localPlayer->lookup_down = std::clamp(localPlayer->lookup_down, -89.0f, 89.0f);
-
-    std::cout << "[Aimbot] Final angles - Yaw: " << localPlayer->lookleft_right
-        << " Pitch: " << localPlayer->lookup_down << "\n";
-    std::cout << "[Aimbot] ===========================\n\n";
+    if (localPlayer->lookup_down > 89.0f) localPlayer->lookup_down = 89.0f;
+    if (localPlayer->lookup_down < -89.0f) localPlayer->lookup_down = -89.0f;
 }
 
 float Aimbot::GetDistanceToCrosshair(Entity* local, Entity* target)
