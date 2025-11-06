@@ -15,14 +15,13 @@ public:
     // Settings
     bool enabled = false;
     bool smoothAim = true;
-    float smoothAmount = 5.0f;  // Lower = smoother
+    float smoothAmount = 5.0f;
     float fov = 90.0f;
     bool visibilityCheck = true;
     bool teamCheck = true;
-    bool aimKey = false;  // Requires holding a key
-    int aimKeyCode = VK_RBUTTON;  // Right mouse button
+    bool aimKey = false;
+    int aimKeyCode = VK_RBUTTON;
 
-    // Targeting priority
     enum TargetPriority {
         CLOSEST_TO_CROSSHAIR = 0,
         CLOSEST_DISTANCE = 1,
@@ -30,7 +29,6 @@ public:
     };
     TargetPriority priority = CLOSEST_TO_CROSSHAIR;
 
-    // Aim bone
     enum AimBone {
         HEAD = 0,
         NECK = 1,
@@ -46,4 +44,12 @@ private:
     bool IsVisible(Entity* local, Entity* target);
     bool IsInFOV(Entity* local, Entity* target);
     void SmoothAim(float targetYaw, float targetPitch);
+
+    // Add WorldToScreen for visibility check
+    bool WorldToScreen(const Vec3& worldPos, Vec2& screenPos);
+
+    // View matrix
+    float viewMatrix[16];
+    int screenWidth = 1920;
+    int screenHeight = 1080;
 };
