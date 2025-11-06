@@ -139,6 +139,14 @@ Entity* Aimbot::GetBestTarget()
 
     int32_t otherPlayersCount = entityCount - 1;
 
+    static int debugFrame = 0;
+    bool shouldDebug = (debugFrame++ % 120 == 0);
+
+    int validTargets = 0;
+    int teamFiltered = 0;
+    int visFiltered = 0;
+    int fovFiltered = 0;
+
     for (int i = 1; i <= otherPlayersCount && i < 32; i++) {
         __try {
             uintptr_t entityAddr = entityListPtr + (i * 4);
@@ -149,23 +157,25 @@ Entity* Aimbot::GetBestTarget()
             if (entity == localPlayer) continue;
             if (entity->player_health <= 0) continue;
 
-            // Team check - Same TeamID = same team
-            if (teamCheck && localPlayer->TeamID == entity->TeamID) {
-                continue;
+            // Team check
+            if (teamCheck) {
+                if (localPlayer->TeamID == entity->TeamID) {
+                    teamFiltered++;
+                    continue;
+                }
             }
 
-            // Visibility check - uses WorldToScreen like the working code
-            if (visibilityCheck && !IsVisible(localPlayer, entity)) {
-                continue;
-            }
-
-            // Calculate distance
+            // Calculate distance FIRST (for priority)
             float dx = entity->HeadPos.x - localPlayer->HeadPos.x;
             float dy = entity->HeadPos.y - localPlayer->HeadPos.y;
             float distance = sqrtf(dx * dx + dy * dy);
 
-            // FOV check
-            if (fov < 360.0f) {
+            // FOV check BEFORE visibility (it's cheaper)
+            bool passedFOV = false;
+            if (fov >= 360.0f) {
+                passedFOV = true; // No FOV check
+            }
+            else {
                 Vec3 delta;
                 delta.x = entity->HeadPos.x - localPlayer->HeadPos.x;
                 delta.y = entity->HeadPos.y - localPlayer->HeadPos.y;
@@ -183,11 +193,39 @@ Entity* Aimbot::GetBestTarget()
 
                 float angleDifference = sqrtf(deltaYaw * deltaYaw + deltaPitch * deltaPitch);
 
-                if (angleDifference > fov) {
+                if (angleDifference <= fov) {
+                    passedFOV = true;
+                }
+                else {
+                    fovFiltered++;
+                    if (shouldDebug) {
+                        std::cout << "[Aimbot] " << entity->name << " - FOV filtered: "
+                            << angleDifference << "° > " << fov << "°\n";
+                    }
+                }
+            }
+
+            if (!passedFOV) continue;
+
+            // Visibility check LAST (most expensive)
+            if (visibilityCheck) {
+                if (!IsVisible(localPlayer, entity)) {
+                    visFiltered++;
+                    if (shouldDebug) {
+                        std::cout << "[Aimbot] " << entity->name << " - Not visible\n";
+                    }
                     continue;
                 }
             }
 
+            validTargets++;
+
+            if (shouldDebug) {
+                std::cout << "[Aimbot] VALID: " << entity->name
+                    << " | Distance: " << distance << "\n";
+            }
+
+            // Use distance as priority
             if (distance < bestDistance) {
                 bestDistance = distance;
                 bestTarget = entity;
@@ -195,6 +233,19 @@ Entity* Aimbot::GetBestTarget()
         }
         __except (EXCEPTION_EXECUTE_HANDLER) {
             continue;
+        }
+    }
+
+    if (shouldDebug) {
+        std::cout << "[Aimbot] Summary - Valid: " << validTargets
+            << " | Team: " << teamFiltered
+            << " | FOV: " << fovFiltered
+            << " | Vis: " << visFiltered << "\n";
+        if (bestTarget) {
+            std::cout << "[Aimbot] LOCKED: " << bestTarget->name << "\n";
+        }
+        else {
+            std::cout << "[Aimbot] NO TARGET\n";
         }
     }
 
@@ -237,17 +288,14 @@ bool Aimbot::IsVisible(Entity* local, Entity* target)
 
     Vec2 headScreen, feetScreen;
 
-    // Check HEAD_AND_FEET (both must be visible, like working code)
-    if (!WorldToScreen(target->HeadPos, headScreen)) {
-        return false;
-    }
+    // Try head first
+    bool headVisible = WorldToScreen(target->HeadPos, headScreen);
 
-    if (!WorldToScreen(target->FeetPos, feetScreen)) {
-        return false;
-    }
+    // If head not visible, try feet
+    bool feetVisible = WorldToScreen(target->FeetPos, feetScreen);
 
-    // Both head and feet are on screen - target is visible
-    return true;
+    // Accept if EITHER head OR feet is visible (more lenient than both)
+    return headVisible || feetVisible;
 }
 
 float Aimbot::GetDistanceToCrosshair(Entity* local, Entity* target)
